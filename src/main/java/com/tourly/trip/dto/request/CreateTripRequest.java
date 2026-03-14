@@ -3,186 +3,147 @@ package com.tourly.trip.dto.request;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-import com.tourly.trip.enums.*;
+import com.tourly.trip.enums.CancellationPolicy;
+import com.tourly.trip.enums.TripCategory;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public class CreateTripRequest {
 
+    @NotBlank(message = "Title is required")
+    @Size(min = 3, max = 150, message = "Title must be between 3 and 150 characters")
     private String title;
 
+    @NotBlank(message = "Description is required")
+    @Size(min = 10, max = 2000, message = "Description must be between 10 and 2000 characters")
     private String description;
 
+    @NotNull(message = "Destination ID is required")
+    @Positive(message = "Destination ID must be greater than 0")
     private Long destinationId;
 
+    @NotNull(message = "Start date is required")
+    @Future(message = "Start date must be in the future")
     private LocalDate startDate;
 
+    @NotNull(message = "End date is required")
+    @Future(message = "End date must be in the future")
     private LocalDate endDate;
 
+    @NotNull(message = "Base price is required")
+    @DecimalMin(value = "0.01", inclusive = true, message = "Base price must be greater than 0")
     private BigDecimal basePrice;
 
+    @NotNull(message = "Minimum price is required")
+    @DecimalMin(value = "0.01", inclusive = true, message = "Minimum price must be greater than 0")
     private BigDecimal minPrice;
 
+    @NotNull(message = "Maximum price is required")
+    @DecimalMin(value = "0.01", inclusive = true, message = "Maximum price must be greater than 0")
     private BigDecimal maxPrice;
 
+    @NotNull(message = "Total seats are required")
+    @Positive(message = "Total seats must be greater than 0")
     private Integer totalSeats;
 
+    @NotNull(message = "Trip category is required")
     private TripCategory category;
 
+    @NotNull(message = "Cancellation policy is required")
     private CancellationPolicy cancellationPolicy;
 
-    // getters setters
+    // Getters & Setters
 
-    /**
-     * @return String return the title
-     */
     public String getTitle() {
         return title;
     }
 
-    /**
-     * @param title the title to set
-     */
     public void setTitle(String title) {
         this.title = title;
     }
 
-    /**
-     * @return String return the description
-     */
     public String getDescription() {
         return description;
     }
 
-    /**
-     * @param description the description to set
-     */
     public void setDescription(String description) {
         this.description = description;
     }
 
-    /**
-     * @return Long return the destinationId
-     */
     public Long getDestinationId() {
         return destinationId;
     }
 
-    /**
-     * @param destinationId the destinationId to set
-     */
     public void setDestinationId(Long destinationId) {
         this.destinationId = destinationId;
     }
 
-    /**
-     * @return LocalDate return the startDate
-     */
     public LocalDate getStartDate() {
         return startDate;
     }
 
-    /**
-     * @param startDate the startDate to set
-     */
     public void setStartDate(LocalDate startDate) {
         this.startDate = startDate;
     }
 
-    /**
-     * @return LocalDate return the endDate
-     */
     public LocalDate getEndDate() {
         return endDate;
     }
 
-    /**
-     * @param endDate the endDate to set
-     */
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
     }
 
-    /**
-     * @return BigDecimal return the basePrice
-     */
     public BigDecimal getBasePrice() {
         return basePrice;
     }
 
-    /**
-     * @param basePrice the basePrice to set
-     */
     public void setBasePrice(BigDecimal basePrice) {
         this.basePrice = basePrice;
     }
 
-    /**
-     * @return BigDecimal return the minPrice
-     */
     public BigDecimal getMinPrice() {
         return minPrice;
     }
 
-    /**
-     * @param minPrice the minPrice to set
-     */
     public void setMinPrice(BigDecimal minPrice) {
         this.minPrice = minPrice;
     }
 
-    /**
-     * @return BigDecimal return the maxPrice
-     */
     public BigDecimal getMaxPrice() {
         return maxPrice;
     }
 
-    /**
-     * @param maxPrice the maxPrice to set
-     */
     public void setMaxPrice(BigDecimal maxPrice) {
         this.maxPrice = maxPrice;
     }
 
-    /**
-     * @return Integer return the totalSeats
-     */
     public Integer getTotalSeats() {
         return totalSeats;
     }
 
-    /**
-     * @param totalSeats the totalSeats to set
-     */
     public void setTotalSeats(Integer totalSeats) {
         this.totalSeats = totalSeats;
     }
 
-    /**
-     * @return TripCategory return the category
-     */
     public TripCategory getCategory() {
         return category;
     }
 
-    /**
-     * @param category the category to set
-     */
     public void setCategory(TripCategory category) {
         this.category = category;
     }
 
-    /**
-     * @return CancellationPolicy return the cancellationPolicy
-     */
     public CancellationPolicy getCancellationPolicy() {
         return cancellationPolicy;
     }
 
-    /**
-     * @param cancellationPolicy the cancellationPolicy to set
-     */
     public void setCancellationPolicy(CancellationPolicy cancellationPolicy) {
         this.cancellationPolicy = cancellationPolicy;
     }
-
 }

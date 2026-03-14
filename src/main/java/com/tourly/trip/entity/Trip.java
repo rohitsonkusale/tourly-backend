@@ -307,27 +307,18 @@ public class Trip {
     /**
      * @return Boolean return the active
      */
-    public Boolean isActive() {
+        public Boolean getActive() {
         return active;
     }
 
-    /**
-     * @param active the active to set
-     */
     public void setActive(Boolean active) {
         this.active = active;
     }
 
-    /**
-     * @return Boolean return the deleted
-     */
-    public Boolean isDeleted() {
+    public Boolean getDeleted() {
         return deleted;
     }
 
-    /**
-     * @param deleted the deleted to set
-     */
     public void setDeleted(Boolean deleted) {
         this.deleted = deleted;
     }

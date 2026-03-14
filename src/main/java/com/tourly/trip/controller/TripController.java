@@ -1,19 +1,27 @@
 package com.tourly.trip.controller;
 
 import java.time.LocalDate;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.bind.annotation.*;
-
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
 import com.tourly.trip.dto.request.CreateTripRequest;
 import com.tourly.trip.dto.request.UpdateTripRequest;
 import com.tourly.trip.dto.response.TripResponse;
 import com.tourly.trip.service.TripService;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
 @RestController
 @RequestMapping("/api/trips")
+@Validated
 public class TripController {
 
     private final TripService tripService;
@@ -27,35 +35,43 @@ public class TripController {
     // ========================================
     @PostMapping
     @PreAuthorize("hasAnyRole('PLANNER','HOST')")
-    public TripResponse createTrip(@RequestBody CreateTripRequest request) {
-        return tripService.createTrip(request);
+    public ResponseEntity<TripResponse> createTrip(@Valid @RequestBody CreateTripRequest request) {
+        TripResponse response = tripService.createTrip(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // ========================================
     // GET ALL TRIPS (PUBLIC)
     // ========================================
     @GetMapping
-    public Page<TripResponse> getAllTrips(Pageable pageable) {
-        return tripService.getAllTrips(pageable);
+    public ResponseEntity<Page<TripResponse>> getAllTrips(Pageable pageable) {
+        Page<TripResponse> response = tripService.getAllTrips(pageable);
+        return ResponseEntity.ok(response);
     }
 
     // ========================================
     // GET TRIP BY ID
     // ========================================
     @GetMapping("/{tripId}")
-    public TripResponse getTripById(@PathVariable Long tripId) {
-        return tripService.getTripById(tripId);
+    public ResponseEntity<TripResponse> getTripById(
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId) {
+        TripResponse response = tripService.getTripById(tripId);
+        return ResponseEntity.ok(response);
     }
 
     // ========================================
     // SEARCH TRIPS
     // ========================================
     @GetMapping("/search")
-    public Page<TripResponse> searchTrips(
+    public ResponseEntity<Page<TripResponse>> searchTrips(
 
-            @RequestParam(required = false) String destination,
+            @RequestParam(required = false)
+            @Size(max = 100, message = "Destination filter cannot exceed 100 characters")
+            String destination,
 
-            @RequestParam(required = false) String host,
+            @RequestParam(required = false)
+            @Size(max = 100, message = "Host filter cannot exceed 100 characters")
+            String host,
 
             @RequestParam(required = false) LocalDate startDate,
 
@@ -63,7 +79,8 @@ public class TripController {
 
             Pageable pageable) {
 
-        return tripService.searchTrips(destination, host, startDate, endDate, pageable);
+        Page<TripResponse> response = tripService.searchTrips(destination, host, startDate, endDate, pageable);
+        return ResponseEntity.ok(response);
     }
 
     // ========================================
@@ -71,11 +88,12 @@ public class TripController {
     // ========================================
     @PutMapping("/{tripId}")
     @PreAuthorize("hasAnyRole('PLANNER','HOST')")
-    public TripResponse updateTrip(
-            @PathVariable Long tripId,
-            @RequestBody UpdateTripRequest request) {
+    public ResponseEntity<TripResponse> updateTrip(
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId,
+            @Valid @RequestBody UpdateTripRequest request) {
 
-        return tripService.updateTrip(tripId, request);
+        TripResponse response = tripService.updateTrip(tripId, request);
+        return ResponseEntity.ok(response);
     }
 
     // ========================================
@@ -83,11 +101,10 @@ public class TripController {
     // ========================================
     @DeleteMapping("/{tripId}")
     @PreAuthorize("hasAnyRole('PLANNER','HOST')")
-    public String deleteTrip(@PathVariable Long tripId) {
+    public ResponseEntity<String> deleteTrip(
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId) {
 
         tripService.deleteTrip(tripId);
-
-        return "Trip deleted successfully";
+        return ResponseEntity.ok("Trip deleted successfully");
     }
-
 }
