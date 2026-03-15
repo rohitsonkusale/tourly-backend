@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import com.tourly.trip.dto.request.CreateTripRequest;
 import com.tourly.trip.dto.request.UpdateTripRequest;
 import com.tourly.trip.dto.response.TripResponse;
+import com.tourly.trip.enums.TripStatus;
 
 public interface TripService {
 
@@ -28,4 +29,17 @@ public interface TripService {
     TripResponse updateTrip(Long tripId, UpdateTripRequest request);
 
     void deleteTrip(Long tripId);
+
+    // =========================================
+    // PLANNER / HOST - MY TRIPS
+    // =========================================
+    Page<TripResponse> getMyTrips(Pageable pageable);
+
+    Page<TripResponse> getMyActiveTrips(Pageable pageable);
+
+    Page<TripResponse> getMyInactiveTrips(Pageable pageable);
+
+    Page<TripResponse> getMyDeletedTrips(Pageable pageable);
+
+    Page<TripResponse> getMyTripsByStatus(TripStatus status, Pageable pageable);
 }

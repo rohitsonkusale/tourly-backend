@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import com.tourly.trip.dto.request.CreateTripRequest;
 import com.tourly.trip.dto.request.UpdateTripRequest;
 import com.tourly.trip.dto.response.TripResponse;
+import com.tourly.trip.enums.TripStatus;
 import com.tourly.trip.service.TripService;
 
 import jakarta.validation.Valid;
@@ -80,6 +81,61 @@ public class TripController {
             Pageable pageable) {
 
         Page<TripResponse> response = tripService.searchTrips(destination, host, startDate, endDate, pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    // ========================================
+    // MY TRIPS - ALL
+    // ========================================
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyRole('PLANNER','HOST')")
+    public ResponseEntity<Page<TripResponse>> getMyTrips(Pageable pageable) {
+        Page<TripResponse> response = tripService.getMyTrips(pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    // ========================================
+    // MY TRIPS - ACTIVE
+    // ========================================
+    @GetMapping("/my/active")
+    @PreAuthorize("hasAnyRole('PLANNER','HOST')")
+    public ResponseEntity<Page<TripResponse>> getMyActiveTrips(Pageable pageable) {
+        Page<TripResponse> response = tripService.getMyActiveTrips(pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    // ========================================
+    // MY TRIPS - INACTIVE
+    // ========================================
+    @GetMapping("/my/inactive")
+    @PreAuthorize("hasAnyRole('PLANNER','HOST')")
+    public ResponseEntity<Page<TripResponse>> getMyInactiveTrips(Pageable pageable) {
+        Page<TripResponse> response = tripService.getMyInactiveTrips(pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    // ========================================
+    // MY TRIPS - DELETED
+    // ========================================
+    @GetMapping("/my/deleted")
+    @PreAuthorize("hasAnyRole('PLANNER','HOST')")
+    public ResponseEntity<Page<TripResponse>> getMyDeletedTrips(Pageable pageable) {
+        Page<TripResponse> response = tripService.getMyDeletedTrips(pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    // ========================================
+    // MY TRIPS - BY STATUS
+    // Example:
+    // /api/trips/my/status?status=PUBLISHED
+    // ========================================
+    @GetMapping("/my/status")
+    @PreAuthorize("hasAnyRole('PLANNER','HOST')")
+    public ResponseEntity<Page<TripResponse>> getMyTripsByStatus(
+            @RequestParam TripStatus status,
+            Pageable pageable) {
+
+        Page<TripResponse> response = tripService.getMyTripsByStatus(status, pageable);
         return ResponseEntity.ok(response);
     }
 

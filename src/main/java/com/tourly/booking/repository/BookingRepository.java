@@ -4,11 +4,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.tourly.booking.entity.Booking;
+import com.tourly.booking.enums.BookingStatus;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
@@ -21,6 +24,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // BOOKINGS FOR A TRIP
     // =====================================
     List<Booking> findByTripId(Long tripId);
+
+    // =====================================
+    // ADMIN BOOKING FILTER
+    // =====================================
+    Page<Booking> findByStatus(BookingStatus status, Pageable pageable);
 
     // =====================================
     // FIND EXPIRED PENDING BOOKINGS (Scheduler)

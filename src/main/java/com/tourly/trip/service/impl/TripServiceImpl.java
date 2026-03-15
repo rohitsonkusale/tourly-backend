@@ -17,6 +17,7 @@ import com.tourly.trip.dto.request.UpdateTripRequest;
 import com.tourly.trip.dto.response.TripResponse;
 import com.tourly.trip.entity.Destination;
 import com.tourly.trip.entity.Trip;
+import com.tourly.trip.enums.TripStatus;
 import com.tourly.trip.mapper.TripMapper;
 import com.tourly.trip.repository.DestinationRepository;
 import com.tourly.trip.repository.TripRepository;
@@ -98,6 +99,17 @@ public class TripServiceImpl implements TripService {
     }
 
     // =========================================
+    // HELPER: VALIDATE CREATOR ROLE
+    // =========================================
+    private void validatePlannerOrHost(User user) {
+        RoleName role = user.getRole().getName();
+
+        if (role != RoleName.PLANNER && role != RoleName.HOST) {
+            throw new RuntimeException("Only planners or hosts can perform this action");
+        }
+    }
+
+    // =========================================
     // CREATE TRIP (PLANNER / HOST)
     // =========================================
     @Override
@@ -105,11 +117,7 @@ public class TripServiceImpl implements TripService {
 
         User planner = getCurrentUser();
 
-        RoleName role = planner.getRole().getName();
-
-        if (role != RoleName.PLANNER && role != RoleName.HOST) {
-            throw new RuntimeException("Only planners or hosts can create trips");
-        }
+        validatePlannerOrHost(planner);
 
         // Validate dates
         validateDates(request.getStartDate(), request.getEndDate());
@@ -144,6 +152,10 @@ public class TripServiceImpl implements TripService {
         trip.setActive(true);
         trip.setDeleted(false);
 
+        // IMPORTANT: default newly created trip becomes PUBLISHED
+        // (matches your current business decision: no admin approval gate)
+        trip.setStatus(TripStatus.PUBLISHED);
+
         trip.setCreatedAt(LocalDateTime.now());
         trip.setUpdatedAt(LocalDateTime.now());
 
@@ -156,18 +168,21 @@ public class TripServiceImpl implements TripService {
     }
 
     // =========================================
-    // GET ALL TRIPS (PUBLIC - ONLY ACTIVE)
+    // GET ALL TRIPS (PUBLIC - ONLY ACTIVE + PUBLISHED)
     // =========================================
     @Override
     public Page<TripResponse> getAllTrips(Pageable pageable) {
 
-        Page<Trip> trips = tripRepository.findByDeletedFalseAndActiveTrue(pageable);
+        Page<Trip> trips = tripRepository.findByDeletedFalseAndActiveTrueAndStatus(
+                TripStatus.PUBLISHED,
+                pageable
+        );
 
         return trips.map(TripMapper::mapToResponse);
     }
 
     // =========================================
-    // GET TRIP BY ID (PUBLIC - ONLY ACTIVE)
+    // GET TRIP BY ID (PUBLIC - ONLY ACTIVE + NOT DELETED + PUBLISHED)
     // =========================================
     @Override
     public TripResponse getTripById(Long tripId) {
@@ -175,7 +190,9 @@ public class TripServiceImpl implements TripService {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (Boolean.TRUE.equals(trip.getDeleted()) || Boolean.FALSE.equals(trip.getActive())) {
+        if (Boolean.TRUE.equals(trip.getDeleted())
+                || Boolean.FALSE.equals(trip.getActive())
+                || trip.getStatus() != TripStatus.PUBLISHED) {
             throw new RuntimeException("Trip not found or no longer available");
         }
 
@@ -183,7 +200,7 @@ public class TripServiceImpl implements TripService {
     }
 
     // =========================================
-    // SEARCH TRIPS (PUBLIC - SHOULD RETURN ONLY ACTIVE)
+    // SEARCH TRIPS (PUBLIC - ONLY ACTIVE + PUBLISHED)
     // =========================================
     @Override
     public Page<TripResponse> searchTrips(
@@ -193,11 +210,12 @@ public class TripServiceImpl implements TripService {
             LocalDate endDate,
             Pageable pageable) {
 
-        Page<Trip> trips = tripRepository.searchTrips(
+        Page<Trip> trips = tripRepository.searchPublishedTrips(
                 destination,
                 host,
                 startDate,
                 endDate,
+                TripStatus.PUBLISHED,
                 pageable
         );
 
@@ -211,6 +229,7 @@ public class TripServiceImpl implements TripService {
     public TripResponse updateTrip(Long tripId, UpdateTripRequest request) {
 
         User currentUser = getCurrentUser();
+        validatePlannerOrHost(currentUser);
 
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
@@ -282,6 +301,7 @@ public class TripServiceImpl implements TripService {
     public void deleteTrip(Long tripId) {
 
         User currentUser = getCurrentUser();
+        validatePlannerOrHost(currentUser);
 
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
@@ -299,5 +319,88 @@ public class TripServiceImpl implements TripService {
         trip.setUpdatedAt(LocalDateTime.now());
 
         tripRepository.save(trip);
+    }
+
+    // =========================================
+    // MY TRIPS - ALL (PLANNER / HOST ONLY)
+    // =========================================
+    @Override
+    public Page<TripResponse> getMyTrips(Pageable pageable) {
+
+        User currentUser = getCurrentUser();
+        validatePlannerOrHost(currentUser);
+
+        Page<Trip> trips = tripRepository.findByPlannerId(currentUser.getId(), pageable);
+
+        return trips.map(TripMapper::mapToResponse);
+    }
+
+    // =========================================
+    // MY TRIPS - ACTIVE
+    // =========================================
+    @Override
+    public Page<TripResponse> getMyActiveTrips(Pageable pageable) {
+
+        User currentUser = getCurrentUser();
+        validatePlannerOrHost(currentUser);
+
+        Page<Trip> trips = tripRepository.findByPlannerIdAndActiveTrueAndDeletedFalse(
+                currentUser.getId(),
+                pageable
+        );
+
+        return trips.map(TripMapper::mapToResponse);
+    }
+
+    // =========================================
+    // MY TRIPS - INACTIVE
+    // =========================================
+    @Override
+    public Page<TripResponse> getMyInactiveTrips(Pageable pageable) {
+
+        User currentUser = getCurrentUser();
+        validatePlannerOrHost(currentUser);
+
+        Page<Trip> trips = tripRepository.findByPlannerIdAndActiveFalseAndDeletedFalse(
+                currentUser.getId(),
+                pageable
+        );
+
+        return trips.map(TripMapper::mapToResponse);
+    }
+
+    // =========================================
+    // MY TRIPS - DELETED
+    // =========================================
+    @Override
+    public Page<TripResponse> getMyDeletedTrips(Pageable pageable) {
+
+        User currentUser = getCurrentUser();
+        validatePlannerOrHost(currentUser);
+
+        Page<Trip> trips = tripRepository.findByPlannerIdAndDeletedTrue(
+                currentUser.getId(),
+                pageable
+        );
+
+        return trips.map(TripMapper::mapToResponse);
+    }
+
+    // =========================================
+    // MY TRIPS - BY STATUS
+    // =========================================
+    @Override
+    public Page<TripResponse> getMyTripsByStatus(TripStatus status, Pageable pageable) {
+
+        User currentUser = getCurrentUser();
+        validatePlannerOrHost(currentUser);
+
+        Page<Trip> trips = tripRepository.findByPlannerIdAndStatusAndDeletedFalse(
+                currentUser.getId(),
+                status,
+                pageable
+        );
+
+        return trips.map(TripMapper::mapToResponse);
     }
 }

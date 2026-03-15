@@ -6,7 +6,6 @@ import com.tourly.trip.dto.response.TripResponse;
 public class TripMapper {
 
     public static TripResponse mapToResponse(Trip trip) {
-
         TripResponse response = new TripResponse();
 
         response.setId(trip.getId());
@@ -25,6 +24,23 @@ public class TripMapper {
         if (trip.getPlanner() != null) {
             response.setPlannerName(trip.getPlanner().getFullName());
         }
+
+        return response;
+    }
+
+    // ===============================
+    // ADMIN VIEW (extra fields)
+    // ===============================
+    public static TripResponse mapToAdminResponse(Trip trip) {
+        TripResponse response = mapToResponse(trip);
+
+        // Add admin-specific fields
+        response.setActive(trip.getActive());
+        response.setDeleted(trip.getDeleted());
+        response.setStatus(trip.getStatus());
+        response.setCreatedAt(trip.getCreatedAt());
+        response.setUpdatedAt(trip.getUpdatedAt());
+        response.setDeletedAt(trip.getDeletedAt());
 
         return response;
     }
