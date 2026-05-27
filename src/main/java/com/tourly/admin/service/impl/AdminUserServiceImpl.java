@@ -1,8 +1,12 @@
 package com.tourly.admin.service.impl;
 
+import java.time.LocalDateTime;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.tourly.admin.dto.response.AdminUserResponse;
@@ -32,9 +36,17 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    public Page<AdminUserResponse> getDeletedUsers(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        return userRepository.findByDeletedAtIsNotNull(pageable)
+                .map(this::mapToResponse);
+    }
+
+    @Override
     public AdminUserResponse getUserById(Long userId) {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
+                .orElseThrow(() -> new EntityNotFoundException("Active user not found with ID: " + userId));
 
         return mapToResponse(user);
     }
@@ -65,7 +77,28 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     public AdminUserResponse suspendUser(Long userId) {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
+                .orElseThrow(() -> new EntityNotFoundException("Active user not found with ID: " + userId));
+
+        String currentAdminEmail = getCurrentLoggedInUserEmail();
+        if (currentAdminEmail != null && currentAdminEmail.equalsIgnoreCase(user.getEmail())) {
+            throw new IllegalStateException("You cannot suspend your own account.");
+        }
+
+        if (user.getRole() != null && user.getRole().getName() == RoleName.ADMIN) {
+            throw new IllegalStateException("Admin accounts cannot be suspended.");
+        }
+
+        if (user.getAccountStatus() == AccountStatus.SUSPENDED) {
+            throw new IllegalStateException("User is already suspended.");
+        }
+
+        if (user.getAccountStatus() == AccountStatus.BLOCKED) {
+            throw new IllegalStateException("Blocked users cannot be suspended.");
+        }
+
+        if (user.getAccountStatus() == AccountStatus.DELETED) {
+            throw new IllegalStateException("Deleted users cannot be suspended.");
+        }
 
         user.setAccountStatus(AccountStatus.SUSPENDED);
         User updatedUser = userRepository.save(user);
@@ -76,7 +109,15 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     public AdminUserResponse reactivateUser(Long userId) {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
+                .orElseThrow(() -> new EntityNotFoundException("Active user not found with ID: " + userId));
+
+        if (user.getAccountStatus() == AccountStatus.ACTIVE) {
+            throw new IllegalStateException("User is already active.");
+        }
+
+        if (user.getAccountStatus() == AccountStatus.DELETED) {
+            throw new IllegalStateException("Deleted users cannot be reactivated.");
+        }
 
         user.setAccountStatus(AccountStatus.ACTIVE);
         User updatedUser = userRepository.save(user);
@@ -84,9 +125,60 @@ public class AdminUserServiceImpl implements AdminUserService {
         return mapToResponse(updatedUser);
     }
 
+    @Override
+    public AdminUserResponse softDeleteUser(Long userId) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Active user not found with ID: " + userId));
+
+        String currentAdminEmail = getCurrentLoggedInUserEmail();
+        if (currentAdminEmail != null && currentAdminEmail.equalsIgnoreCase(user.getEmail())) {
+            throw new IllegalStateException("You cannot delete your own account.");
+        }
+
+        if (user.getRole() != null && user.getRole().getName() == RoleName.ADMIN) {
+            throw new IllegalStateException("Admin accounts cannot be deleted.");
+        }
+
+        if (user.getAccountStatus() == AccountStatus.DELETED) {
+            throw new IllegalStateException("User is already marked as deleted.");
+        }
+
+        user.setDeletedAt(LocalDateTime.now());
+        user.setAccountStatus(AccountStatus.DELETED);
+
+        User updatedUser = userRepository.save(user);
+        return mapToResponse(updatedUser);
+    }
+
+    @Override
+    public AdminUserResponse restoreUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
+
+        if (user.getDeletedAt() == null) {
+            throw new IllegalStateException("User is not soft deleted.");
+        }
+
+        user.setDeletedAt(null);
+        user.setAccountStatus(AccountStatus.ACTIVE);
+
+        User updatedUser = userRepository.save(user);
+        return mapToResponse(updatedUser);
+    }
+
     // =========================
-    // Mapper
+    // Helper Methods
     // =========================
+    private String getCurrentLoggedInUserEmail() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+
+        return authentication.getName(); // Usually email in JWT-based auth
+    }
+
     private AdminUserResponse mapToResponse(User user) {
         String roleName = null;
         if (user.getRole() != null && user.getRole().getName() != null) {

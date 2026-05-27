@@ -8,10 +8,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.tourly.auth.entity.AccountStatus;
 import com.tourly.auth.entity.RoleName;
 import com.tourly.auth.entity.User;
 import com.tourly.auth.repository.UserRepository;
+import com.tourly.common.exception.BadRequestException;
+import com.tourly.common.exception.ResourceNotFoundException;
 import com.tourly.trip.dto.request.CreateTripRequest;
 import com.tourly.trip.dto.request.UpdateTripRequest;
 import com.tourly.trip.dto.response.TripResponse;
@@ -22,187 +26,166 @@ import com.tourly.trip.mapper.TripMapper;
 import com.tourly.trip.repository.DestinationRepository;
 import com.tourly.trip.repository.TripRepository;
 import com.tourly.trip.service.TripService;
+import com.tourly.verification.entity.PlannerVerification;
+import com.tourly.verification.enums.VerificationStatus;
+import com.tourly.verification.repository.PlannerVerificationRepository;
+import com.tourly.trip.dto.response.HostStatsResponse;
+import com.tourly.booking.repository.BookingRepository;
 
 @Service
+@Transactional
 public class TripServiceImpl implements TripService {
 
     private final TripRepository tripRepository;
     private final DestinationRepository destinationRepository;
     private final UserRepository userRepository;
+    private final PlannerVerificationRepository plannerVerificationRepository;
+    private final BookingRepository bookingRepository;
 
     public TripServiceImpl(
             TripRepository tripRepository,
             DestinationRepository destinationRepository,
-            UserRepository userRepository) {
-
+            UserRepository userRepository,
+            PlannerVerificationRepository plannerVerificationRepository,
+            BookingRepository bookingRepository) {
         this.tripRepository = tripRepository;
         this.destinationRepository = destinationRepository;
         this.userRepository = userRepository;
+        this.plannerVerificationRepository = plannerVerificationRepository;
+        this.bookingRepository = bookingRepository;
     }
 
-    // =========================================
-    // HELPER: GET CURRENT LOGGED-IN USER
-    // =========================================
-    private User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
-
-    // =========================================
-    // HELPER: CHECK TRIP OWNERSHIP
-    // =========================================
-    private void validateTripOwnership(Trip trip, User currentUser) {
-        if (trip.getPlanner() == null || trip.getPlanner().getId() == null) {
-            throw new RuntimeException("Trip owner not found");
-        }
-
-        if (!trip.getPlanner().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("You are not authorized to modify this trip");
-        }
-    }
-
-    // =========================================
-    // HELPER: VALIDATE PRICE RANGE
-    // =========================================
-    private void validatePriceRange(Trip trip) {
-        if (trip.getBasePrice() == null || trip.getMinPrice() == null || trip.getMaxPrice() == null) {
-            throw new RuntimeException("Price fields cannot be null");
-        }
-
-        if (trip.getBasePrice().compareTo(trip.getMinPrice()) < 0) {
-            throw new RuntimeException("Base price cannot be less than minimum price");
-        }
-
-        if (trip.getBasePrice().compareTo(trip.getMaxPrice()) > 0) {
-            throw new RuntimeException("Base price cannot be greater than maximum price");
-        }
-
-        if (trip.getMinPrice().compareTo(trip.getMaxPrice()) > 0) {
-            throw new RuntimeException("Minimum price cannot be greater than maximum price");
-        }
-    }
-
-    // =========================================
-    // HELPER: VALIDATE DATES
-    // =========================================
-    private void validateDates(LocalDate startDate, LocalDate endDate) {
-        if (startDate == null || endDate == null) {
-            throw new RuntimeException("Start date and end date are required");
-        }
-
-        if (endDate.isBefore(startDate)) {
-            throw new RuntimeException("End date cannot be before start date");
-        }
-    }
-
-    // =========================================
-    // HELPER: VALIDATE CREATOR ROLE
-    // =========================================
-    private void validatePlannerOrHost(User user) {
-        RoleName role = user.getRole().getName();
-
-        if (role != RoleName.PLANNER && role != RoleName.HOST) {
-            throw new RuntimeException("Only planners or hosts can perform this action");
-        }
-    }
-
-    // =========================================
-    // CREATE TRIP (PLANNER / HOST)
-    // =========================================
+    // ========================================
+    // CREATE TRIP
+    // Only HOST (verified) or ADMIN
+    // NOTE:
+    // - HOST can create trip
+    // - PLANNER cannot create trip (planner can only plan/suggest)
+    // - HOST and PLANNER both require verification in your platform,
+    //   but only HOST creation is enforced here
+    // ========================================
     @Override
     public TripResponse createTrip(CreateTripRequest request) {
+        User currentUser = getCurrentUser();
 
-        User planner = getCurrentUser();
+        RoleName roleName = getRoleName(currentUser);
 
-        validatePlannerOrHost(planner);
+        // Only HOST or ADMIN can create trip
+        if (roleName != RoleName.HOST && roleName != RoleName.ADMIN) {
+            throw new BadRequestException("Only verified hosts can create trips.");
+        }
 
-        // Validate dates
-        validateDates(request.getStartDate(), request.getEndDate());
-
-        // Validate seats
-        if (request.getTotalSeats() == null || request.getTotalSeats() <= 0) {
-            throw new RuntimeException("Total seats must be greater than 0");
+        // Admin bypasses verification
+        if (roleName != RoleName.ADMIN) {
+            validateVerifiedUser(currentUser);
         }
 
         Destination destination = destinationRepository.findById(request.getDestinationId())
-                .orElseThrow(() -> new RuntimeException("Destination not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Destination not found with ID: " + request.getDestinationId()));
+
+        validateTripDates(request.getStartDate(), request.getEndDate());
+        validateTripPricing(request.getBasePrice(), request.getMinPrice(), request.getMaxPrice());
 
         Trip trip = new Trip();
+        trip.setTitle(request.getTitle().trim());
+        trip.setDescription(request.getDescription().trim());
 
-        trip.setTitle(request.getTitle());
-        trip.setDescription(request.getDescription());
-        trip.setPlanner(planner);
+        // Keeping existing field name planner as per your entity design
+        trip.setPlanner(currentUser);
+
         trip.setDestination(destination);
         trip.setStartDate(request.getStartDate());
         trip.setEndDate(request.getEndDate());
-
         trip.setBasePrice(request.getBasePrice());
         trip.setMinPrice(request.getMinPrice());
         trip.setMaxPrice(request.getMaxPrice());
-
         trip.setTotalSeats(request.getTotalSeats());
         trip.setBookedSeats(0);
-
         trip.setCategory(request.getCategory());
         trip.setCancellationPolicy(request.getCancellationPolicy());
 
+        // Business defaults
+        trip.setStatus(TripStatus.DRAFT);
         trip.setActive(true);
         trip.setDeleted(false);
-
-        // IMPORTANT: default newly created trip becomes PUBLISHED
-        // (matches your current business decision: no admin approval gate)
-        trip.setStatus(TripStatus.PUBLISHED);
-
-        trip.setCreatedAt(LocalDateTime.now());
-        trip.setUpdatedAt(LocalDateTime.now());
-
-        // Validate price rules
-        validatePriceRange(trip);
 
         Trip savedTrip = tripRepository.save(trip);
 
         return TripMapper.mapToResponse(savedTrip);
     }
 
-    // =========================================
-    // GET ALL TRIPS (PUBLIC - ONLY ACTIVE + PUBLISHED)
-    // =========================================
+    // ========================================
+    // GET ALL TRIPS (PUBLIC)
+    // Only published + active + not deleted
+    // ========================================
     @Override
+    @Transactional(readOnly = true)
     public Page<TripResponse> getAllTrips(Pageable pageable) {
-
-        Page<Trip> trips = tripRepository.findByDeletedFalseAndActiveTrueAndStatus(
-                TripStatus.PUBLISHED,
-                pageable
-        );
-
-        return trips.map(TripMapper::mapToResponse);
+        return tripRepository
+                .findByDeletedFalseAndActiveTrueAndStatus(TripStatus.PUBLISHED, pageable)
+                .map(TripMapper::mapToResponse);
     }
 
-    // =========================================
-    // GET TRIP BY ID (PUBLIC - ONLY ACTIVE + NOT DELETED + PUBLISHED)
-    // =========================================
+    // ========================================
+    // GET TRIP BY ID
+    // Public can only see published + active + not deleted
+    // Owner/Admin can see own trip even if draft/inactive
+    // Deleted trips remain hidden from public
+    // ========================================
     @Override
+    @Transactional(readOnly = true)
     public TripResponse getTripById(Long tripId) {
-
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip not found with ID: " + tripId));
 
-        if (Boolean.TRUE.equals(trip.getDeleted())
-                || Boolean.FALSE.equals(trip.getActive())
-                || trip.getStatus() != TripStatus.PUBLISHED) {
-            throw new RuntimeException("Trip not found or no longer available");
+        // Deleted trips are hidden from public
+        if (Boolean.TRUE.equals(trip.getDeleted())) {
+            User currentUser = getCurrentUserOptional();
+
+            if (currentUser == null) {
+                throw new ResourceNotFoundException("Trip not found with ID: " + tripId);
+            }
+
+            boolean isAdmin = getRoleName(currentUser) == RoleName.ADMIN;
+            boolean isOwner = trip.getPlanner() != null && trip.getPlanner().getId().equals(currentUser.getId());
+
+            if (!isAdmin && !isOwner) {
+                throw new ResourceNotFoundException("Trip not found with ID: " + tripId);
+            }
+
+            return TripMapper.mapToResponse(trip);
+        }
+
+        boolean isPublicVisible = Boolean.TRUE.equals(trip.getActive())
+                && TripStatus.PUBLISHED.equals(trip.getStatus());
+
+        if (isPublicVisible) {
+            return TripMapper.mapToResponse(trip);
+        }
+
+        // If not public visible, allow only owner/admin
+        User currentUser = getCurrentUserOptional();
+        if (currentUser == null) {
+            throw new ResourceNotFoundException("Trip not found with ID: " + tripId);
+        }
+
+        boolean isAdmin = getRoleName(currentUser) == RoleName.ADMIN;
+        boolean isOwner = trip.getPlanner() != null && trip.getPlanner().getId().equals(currentUser.getId());
+
+        if (!isAdmin && !isOwner) {
+            throw new ResourceNotFoundException("Trip not found with ID: " + tripId);
         }
 
         return TripMapper.mapToResponse(trip);
     }
 
-    // =========================================
-    // SEARCH TRIPS (PUBLIC - ONLY ACTIVE + PUBLISHED)
-    // =========================================
+    // ========================================
+    // SEARCH TRIPS (PUBLIC)
+    // Only published + active + not deleted
+    // ========================================
     @Override
+    @Transactional(readOnly = true)
     public Page<TripResponse> searchTrips(
             String destination,
             String host,
@@ -210,197 +193,307 @@ public class TripServiceImpl implements TripService {
             LocalDate endDate,
             Pageable pageable) {
 
-        Page<Trip> trips = tripRepository.searchPublishedTrips(
-                destination,
-                host,
-                startDate,
-                endDate,
-                TripStatus.PUBLISHED,
-                pageable
-        );
-
-        return trips.map(TripMapper::mapToResponse);
-    }
-
-    // =========================================
-    // UPDATE TRIP (OWNER ONLY)
-    // =========================================
-    @Override
-    public TripResponse updateTrip(Long tripId, UpdateTripRequest request) {
-
-        User currentUser = getCurrentUser();
-        validatePlannerOrHost(currentUser);
-
-        Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
-
-        if (Boolean.TRUE.equals(trip.getDeleted()) || Boolean.FALSE.equals(trip.getActive())) {
-            throw new RuntimeException("Cannot update deleted or inactive trip");
+        if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
+            throw new BadRequestException("End date cannot be before start date.");
         }
 
-        // Ownership check
-        validateTripOwnership(trip, currentUser);
+        return tripRepository
+                .searchPublishedTrips(destination, host, startDate, endDate, TripStatus.PUBLISHED, pageable)
+                .map(TripMapper::mapToResponse);
+    }
+
+    // ========================================
+    // MY TRIPS - ALL
+    // ========================================
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TripResponse> getMyTrips(Pageable pageable) {
+        User currentUser = getCurrentUser();
+        return tripRepository.findByPlannerId(currentUser.getId(), pageable)
+                .map(TripMapper::mapToResponse);
+    }
+
+    // ========================================
+    // MY TRIPS - ACTIVE
+    // ========================================
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TripResponse> getMyActiveTrips(Pageable pageable) {
+        User currentUser = getCurrentUser();
+        return tripRepository.findByPlannerIdAndActiveTrueAndDeletedFalse(currentUser.getId(), pageable)
+                .map(TripMapper::mapToResponse);
+    }
+
+    // ========================================
+    // MY TRIPS - INACTIVE
+    // ========================================
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TripResponse> getMyInactiveTrips(Pageable pageable) {
+        User currentUser = getCurrentUser();
+        return tripRepository.findByPlannerIdAndActiveFalseAndDeletedFalse(currentUser.getId(), pageable)
+                .map(TripMapper::mapToResponse);
+    }
+
+    // ========================================
+    // MY TRIPS - DELETED
+    // ========================================
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TripResponse> getMyDeletedTrips(Pageable pageable) {
+        User currentUser = getCurrentUser();
+        return tripRepository.findByPlannerIdAndDeletedTrue(currentUser.getId(), pageable)
+                .map(TripMapper::mapToResponse);
+    }
+
+    // ========================================
+    // MY TRIPS - BY STATUS
+    // ========================================
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TripResponse> getMyTripsByStatus(TripStatus status, Pageable pageable) {
+        User currentUser = getCurrentUser();
+        return tripRepository.findByPlannerIdAndStatusAndDeletedFalse(currentUser.getId(), status, pageable)
+                .map(TripMapper::mapToResponse);
+    }
+
+    // ========================================
+    // UPDATE TRIP
+    // Owner or Admin
+    // ========================================
+    @Override
+    public TripResponse updateTrip(Long tripId, UpdateTripRequest request) {
+        User currentUser = getCurrentUser();
+
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trip not found with ID: " + tripId));
+
+        validateTripAccess(trip, currentUser);
+
+        if (Boolean.TRUE.equals(trip.getDeleted())) {
+            throw new BadRequestException("Deleted trip cannot be updated.");
+        }
 
         if (request.getTitle() != null) {
-            trip.setTitle(request.getTitle());
+            trip.setTitle(request.getTitle().trim());
         }
 
         if (request.getDescription() != null) {
-            trip.setDescription(request.getDescription());
+            trip.setDescription(request.getDescription().trim());
         }
 
-        if (request.getStartDate() != null) {
-            trip.setStartDate(request.getStartDate());
+        if (request.getDestinationId() != null) {
+            Destination destination = destinationRepository.findById(request.getDestinationId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Destination not found with ID: " + request.getDestinationId()));
+            trip.setDestination(destination);
         }
 
-        if (request.getEndDate() != null) {
-            trip.setEndDate(request.getEndDate());
-        }
+        LocalDate newStartDate = request.getStartDate() != null ? request.getStartDate() : trip.getStartDate();
+        LocalDate newEndDate = request.getEndDate() != null ? request.getEndDate() : trip.getEndDate();
+        validateTripDates(newStartDate, newEndDate);
 
-        if (request.getBasePrice() != null) {
-            trip.setBasePrice(request.getBasePrice());
-        }
+        trip.setStartDate(newStartDate);
+        trip.setEndDate(newEndDate);
 
-        if (request.getMinPrice() != null) {
-            trip.setMinPrice(request.getMinPrice());
-        }
+        if (request.getBasePrice() != null || request.getMinPrice() != null || request.getMaxPrice() != null) {
+            var newBasePrice = request.getBasePrice() != null ? request.getBasePrice() : trip.getBasePrice();
+            var newMinPrice = request.getMinPrice() != null ? request.getMinPrice() : trip.getMinPrice();
+            var newMaxPrice = request.getMaxPrice() != null ? request.getMaxPrice() : trip.getMaxPrice();
 
-        if (request.getMaxPrice() != null) {
-            trip.setMaxPrice(request.getMaxPrice());
+            validateTripPricing(newBasePrice, newMinPrice, newMaxPrice);
+
+            trip.setBasePrice(newBasePrice);
+            trip.setMinPrice(newMinPrice);
+            trip.setMaxPrice(newMaxPrice);
         }
 
         if (request.getTotalSeats() != null) {
-            if (request.getTotalSeats() <= 0) {
-                throw new RuntimeException("Total seats must be greater than 0");
+            if (trip.getBookedSeats() != null && request.getTotalSeats() < trip.getBookedSeats()) {
+                throw new BadRequestException("Total seats cannot be less than already booked seats.");
             }
-
-            if (request.getTotalSeats() < trip.getBookedSeats()) {
-                throw new RuntimeException("Total seats cannot be less than already booked seats");
-            }
-
             trip.setTotalSeats(request.getTotalSeats());
         }
 
-        // Validate dates after applying updates
-        validateDates(trip.getStartDate(), trip.getEndDate());
+        if (request.getCategory() != null) {
+            trip.setCategory(request.getCategory());
+        }
 
-        // Validate price range after applying updates
-        validatePriceRange(trip);
+        if (request.getCancellationPolicy() != null) {
+            trip.setCancellationPolicy(request.getCancellationPolicy());
+        }
 
-        trip.setUpdatedAt(LocalDateTime.now());
+        if (request.getStatus() != null) {
+            trip.setStatus(request.getStatus());
+        }
+
+        if (request.getActive() != null) {
+            trip.setActive(request.getActive());
+        }
 
         Trip updatedTrip = tripRepository.save(trip);
-
         return TripMapper.mapToResponse(updatedTrip);
     }
 
-    // =========================================
-    // DELETE TRIP (SOFT DELETE - OWNER ONLY)
-    // =========================================
+    // ========================================
+    // DELETE TRIP (SOFT DELETE)
+    // Owner or Admin
+    // ========================================
     @Override
     public void deleteTrip(Long tripId) {
-
         User currentUser = getCurrentUser();
-        validatePlannerOrHost(currentUser);
 
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip not found with ID: " + tripId));
+
+        validateTripAccess(trip, currentUser);
 
         if (Boolean.TRUE.equals(trip.getDeleted())) {
-            throw new RuntimeException("Trip is already deleted");
+            throw new BadRequestException("Trip is already deleted.");
         }
 
-        // Ownership check
-        validateTripOwnership(trip, currentUser);
-
-        // Soft delete
         trip.setActive(false);
         trip.setDeleted(true);
-        trip.setUpdatedAt(LocalDateTime.now());
+        trip.setDeletedAt(LocalDateTime.now());
 
         tripRepository.save(trip);
     }
 
-    // =========================================
-    // MY TRIPS - ALL (PLANNER / HOST ONLY)
-    // =========================================
-    @Override
-    public Page<TripResponse> getMyTrips(Pageable pageable) {
+    // ========================================
+    // HELPER METHODS
+    // ========================================
 
-        User currentUser = getCurrentUser();
-        validatePlannerOrHost(currentUser);
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        Page<Trip> trips = tripRepository.findByPlannerId(currentUser.getId(), pageable);
+        if (authentication == null || authentication.getName() == null) {
+            throw new BadRequestException("Authenticated user not found.");
+        }
 
-        return trips.map(TripMapper::mapToResponse);
+        String email = authentication.getName();
+
+        if ("anonymousUser".equalsIgnoreCase(email)) {
+            throw new BadRequestException("Authenticated user not found.");
+        }
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
     }
 
-    // =========================================
-    // MY TRIPS - ACTIVE
-    // =========================================
-    @Override
-    public Page<TripResponse> getMyActiveTrips(Pageable pageable) {
+    private User getCurrentUserOptional() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        User currentUser = getCurrentUser();
-        validatePlannerOrHost(currentUser);
+            if (authentication == null || authentication.getName() == null) {
+                return null;
+            }
 
-        Page<Trip> trips = tripRepository.findByPlannerIdAndActiveTrueAndDeletedFalse(
-                currentUser.getId(),
-                pageable
-        );
+            String email = authentication.getName();
 
-        return trips.map(TripMapper::mapToResponse);
+            if ("anonymousUser".equalsIgnoreCase(email)) {
+                return null;
+            }
+
+            return userRepository.findByEmail(email).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
-    // =========================================
-    // MY TRIPS - INACTIVE
-    // =========================================
-    @Override
-    public Page<TripResponse> getMyInactiveTrips(Pageable pageable) {
-
-        User currentUser = getCurrentUser();
-        validatePlannerOrHost(currentUser);
-
-        Page<Trip> trips = tripRepository.findByPlannerIdAndActiveFalseAndDeletedFalse(
-                currentUser.getId(),
-                pageable
-        );
-
-        return trips.map(TripMapper::mapToResponse);
+    // IMPORTANT:
+    // User -> Role -> RoleName
+    private RoleName getRoleName(User user) {
+        if (user == null || user.getRole() == null || user.getRole().getName() == null) {
+            throw new BadRequestException("User role is not assigned properly.");
+        }
+        return user.getRole().getName();
     }
 
-    // =========================================
-    // MY TRIPS - DELETED
-    // =========================================
-    @Override
-    public Page<TripResponse> getMyDeletedTrips(Pageable pageable) {
+    // Verification required for HOST / PLANNER on your platform
+    private void validateVerifiedUser(User user) {
+        RoleName roleName = getRoleName(user);
 
-        User currentUser = getCurrentUser();
-        validatePlannerOrHost(currentUser);
+        if (roleName != RoleName.HOST && roleName != RoleName.PLANNER) {
+            throw new BadRequestException("Verification is only applicable for host or planner accounts.");
+        }
 
-        Page<Trip> trips = tripRepository.findByPlannerIdAndDeletedTrue(
-                currentUser.getId(),
-                pageable
-        );
+        if (user.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new BadRequestException("Your account is not active. You cannot create trips.");
+        }
 
-        return trips.map(TripMapper::mapToResponse);
+        if (Boolean.FALSE.equals(user.getKycVerified())) {
+            throw new BadRequestException("Your KYC is not verified. You cannot create trips.");
+        }
+
+        PlannerVerification verification = plannerVerificationRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new BadRequestException(
+                        "Verification profile not found. Please complete verification first."));
+
+        if (verification.getVerificationStatus() != VerificationStatus.APPROVED) {
+            throw new BadRequestException("Your verification is not approved yet. You cannot create trips.");
+        }
     }
 
-    // =========================================
-    // MY TRIPS - BY STATUS
-    // =========================================
+    private void validateTripDates(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            throw new BadRequestException("Start date and end date are required.");
+        }
+
+        if (endDate.isBefore(startDate)) {
+            throw new BadRequestException("End date cannot be before start date.");
+        }
+    }
+
+    private void validateTripPricing(
+            java.math.BigDecimal basePrice,
+            java.math.BigDecimal minPrice,
+            java.math.BigDecimal maxPrice) {
+
+        if (basePrice == null || minPrice == null || maxPrice == null) {
+            throw new BadRequestException("Base price, minimum price, and maximum price are required.");
+        }
+
+        if (minPrice.compareTo(maxPrice) > 0) {
+            throw new BadRequestException("Minimum price cannot be greater than maximum price.");
+        }
+
+        if (basePrice.compareTo(minPrice) < 0 || basePrice.compareTo(maxPrice) > 0) {
+            throw new BadRequestException("Base price must be between minimum price and maximum price.");
+        }
+    }
+
+    private void validateTripAccess(Trip trip, User currentUser) {
+        boolean isAdmin = getRoleName(currentUser) == RoleName.ADMIN;
+        boolean isOwner = trip.getPlanner() != null && trip.getPlanner().getId().equals(currentUser.getId());
+
+        if (!isAdmin && !isOwner) {
+            throw new BadRequestException("You are not allowed to manage this trip.");
+        }
+    }
+
     @Override
-    public Page<TripResponse> getMyTripsByStatus(TripStatus status, Pageable pageable) {
-
+    @Transactional(readOnly = true)
+    public HostStatsResponse getHostStats() {
         User currentUser = getCurrentUser();
-        validatePlannerOrHost(currentUser);
 
-        Page<Trip> trips = tripRepository.findByPlannerIdAndStatusAndDeletedFalse(
+        // 1. Upcoming Trips Count (active, non-deleted, starts in future)
+        long upcomingTrips = tripRepository.countByPlannerIdAndActiveTrueAndDeletedFalseAndStartDateAfter(
                 currentUser.getId(),
-                status,
-                pageable
+                LocalDate.now()
         );
 
-        return trips.map(TripMapper::mapToResponse);
+        // 2. Total Bookings Count (confirmed / completed bookings on host's trips)
+        long totalBookings = bookingRepository.countBookingsByHostId(currentUser.getId());
+
+        // 3. Monthly Earnings (total earnings from host's trips)
+        java.math.BigDecimal earnings = bookingRepository.sumEarningsByHostId(currentUser.getId());
+
+        // 4. Pending Actions Count (trips that are DRAFT / pending review)
+        long pendingTrips = tripRepository.countByPlannerIdAndActiveTrueAndDeletedFalseAndStatus(
+                currentUser.getId(),
+                TripStatus.DRAFT
+        );
+
+        return new HostStatsResponse(upcomingTrips, totalBookings, earnings, pendingTrips);
     }
 }

@@ -1,0 +1,14 @@
+package com.tourly.userprofile.repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.tourly.userprofile.entity.UserProfile;
+import com.tourly.auth.entity.User;
+
+@Repository
+public interface UserProfileRepository extends JpaRepository<UserProfile, Long> {
+    Optional<UserProfile> findByUser(User user);
+}

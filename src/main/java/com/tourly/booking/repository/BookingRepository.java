@@ -52,4 +52,21 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
           AND b.trip.endDate < :today
     """)
     List<Booking> findCompletedTrips(@Param("today") LocalDate today);
+
+    // =====================================
+    // HOST DASHBOARD STATS
+    // =====================================
+    @Query("""
+        SELECT COUNT(b) FROM Booking b
+        WHERE b.trip.planner.id = :hostId
+          AND (b.status = 'CONFIRMED' OR b.status = 'COMPLETED')
+    """)
+    long countBookingsByHostId(@Param("hostId") Long hostId);
+
+    @Query("""
+        SELECT COALESCE(SUM(b.totalPrice), 0) FROM Booking b
+        WHERE b.trip.planner.id = :hostId
+          AND (b.status = 'CONFIRMED' OR b.status = 'COMPLETED')
+    """)
+    java.math.BigDecimal sumEarningsByHostId(@Param("hostId") Long hostId);
 }

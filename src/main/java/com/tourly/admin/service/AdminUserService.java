@@ -9,6 +9,8 @@ public interface AdminUserService {
 
     Page<AdminUserResponse> getAllUsers(int page, int size);
 
+    Page<AdminUserResponse> getDeletedUsers(int page, int size);
+
     AdminUserResponse getUserById(Long userId);
 
     Page<AdminUserResponse> getUsersByRole(String roleName, int page, int size);
@@ -18,4 +20,8 @@ public interface AdminUserService {
     AdminUserResponse suspendUser(Long userId);
 
     AdminUserResponse reactivateUser(Long userId);
+
+    AdminUserResponse softDeleteUser(Long userId);
+
+    AdminUserResponse restoreUser(Long userId);
 }

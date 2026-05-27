@@ -12,6 +12,7 @@ import com.tourly.booking.enums.BookingStatus;
 import com.tourly.booking.repository.BookingRepository;
 import com.tourly.payment.entity.Payment;
 import com.tourly.payment.repository.PaymentRepository;
+import com.tourly.payment.enums.PaymentStatus;
 import com.tourly.trip.entity.Trip;
 import com.tourly.trip.repository.TripRepository;
 
@@ -64,11 +65,11 @@ public class BookingExpiryScheduler {
 
             bookingRepository.save(booking);
 
-            // Also mark payment failed if still pending
+            // Also mark payment failed if still CREATED
             Payment payment = paymentRepository.findByBookingId(booking.getId()).orElse(null);
 
-            if (payment != null && payment.getStatus() == com.tourly.payment.enums.PaymentStatus.PENDING) {
-                payment.setStatus(com.tourly.payment.enums.PaymentStatus.FAILED);
+            if (payment != null && payment.getStatus() == PaymentStatus.CREATED) {
+                payment.setStatus(PaymentStatus.FAILED);
                 paymentRepository.save(payment);
             }
         }

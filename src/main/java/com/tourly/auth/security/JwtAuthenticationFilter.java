@@ -13,7 +13,8 @@ import com.tourly.auth.service.JwtService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -35,32 +36,53 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
+        // 1️⃣ No auth header or invalid prefix → skip
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = authHeader.substring(7);
+        // 2️⃣ Extract token safely
+        String token = authHeader.substring(7).trim();
 
-        if (!jwtService.validateToken(token)) {
+        if (token.isEmpty()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String userEmail = jwtService.extractEmail(token);
+        try {
+            // 3️⃣ Extract email from token
+            String userEmail = jwtService.extractEmail(token);
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+            // 4️⃣ Only authenticate if not already authenticated
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities());
+                UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
 
-        authentication.setDetails(
-                new WebAuthenticationDetailsSource().buildDetails(request));
+                // 5️⃣ Validate token against user details
+                if (jwtService.validateToken(token, userDetails)) {
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+            }
+
+        } catch (Exception ex) {
+            // IMPORTANT:
+            // Do NOT break request flow for invalid/expired/malformed token.
+            // Leave SecurityContext empty and continue.
+            SecurityContextHolder.clearContext();
+        }
 
         filterChain.doFilter(request, response);
     }

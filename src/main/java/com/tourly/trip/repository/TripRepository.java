@@ -96,6 +96,10 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
             Pageable pageable
     );
 
+    long countByPlannerIdAndActiveTrueAndDeletedFalseAndStartDateAfter(Long plannerId, LocalDate date);
+
+    long countByPlannerIdAndActiveTrueAndDeletedFalseAndStatus(Long plannerId, TripStatus status);
+
     // ========================================
     // ADMIN MODERATION QUERIES
     // ========================================

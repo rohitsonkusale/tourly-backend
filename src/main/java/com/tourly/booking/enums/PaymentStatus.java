@@ -2,7 +2,8 @@ package com.tourly.booking.enums;
 
 public enum PaymentStatus {
     PENDING,
-    PAID,
+    SUCCESS,
     FAILED,
-    REFUNDED
+    REFUNDED,
+    PAID
 }

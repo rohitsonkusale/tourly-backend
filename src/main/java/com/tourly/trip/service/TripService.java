@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import com.tourly.trip.dto.request.CreateTripRequest;
 import com.tourly.trip.dto.request.UpdateTripRequest;
 import com.tourly.trip.dto.response.TripResponse;
+import com.tourly.trip.dto.response.HostStatsResponse;
 import com.tourly.trip.enums.TripStatus;
 
 public interface TripService {
@@ -42,4 +43,6 @@ public interface TripService {
     Page<TripResponse> getMyDeletedTrips(Pageable pageable);
 
     Page<TripResponse> getMyTripsByStatus(TripStatus status, Pageable pageable);
+
+    HostStatsResponse getHostStats();
 }

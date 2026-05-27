@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -22,11 +24,16 @@ import com.tourly.booking.enums.PaymentStatus;
 import com.tourly.booking.mapper.BookingMapper;
 import com.tourly.booking.repository.BookingRepository;
 import com.tourly.booking.service.BookingService;
+import com.tourly.common.exception.BadRequestException;
+import com.tourly.common.exception.ResourceNotFoundException;
+import com.tourly.common.exception.UnauthorizedActionException;
 import com.tourly.trip.entity.Trip;
 import com.tourly.trip.repository.TripRepository;
 
 @Service
 public class BookingServiceImpl implements BookingService {
+
+    private static final Logger log = LoggerFactory.getLogger(BookingServiceImpl.class);
 
     private final BookingRepository bookingRepository;
     private final TripRepository tripRepository;
@@ -50,10 +57,17 @@ public class BookingServiceImpl implements BookingService {
                 .getContext()
                 .getAuthentication();
 
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new UnauthorizedActionException("User is not authenticated");
+        }
+
         String email = authentication.getName();
 
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     // =====================================
@@ -61,11 +75,11 @@ public class BookingServiceImpl implements BookingService {
     // =====================================
     private void validateBookingOwnership(Booking booking, User currentUser) {
         if (booking.getTraveler() == null || booking.getTraveler().getId() == null) {
-            throw new RuntimeException("Booking traveler not found");
+            throw new ResourceNotFoundException("Booking traveler not found");
         }
 
         if (!booking.getTraveler().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("You are not authorized to access this booking");
+            throw new UnauthorizedActionException("You are not authorized to access this booking");
         }
     }
 
@@ -74,16 +88,16 @@ public class BookingServiceImpl implements BookingService {
     // =====================================
     private void validateTripOwnership(Trip trip, User currentUser) {
         if (trip.getPlanner() == null || trip.getPlanner().getId() == null) {
-            throw new RuntimeException("Trip owner not found");
+            throw new ResourceNotFoundException("Trip owner not found");
         }
 
         if (!trip.getPlanner().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("You are not authorized to view bookings for this trip");
+            throw new UnauthorizedActionException("You are not authorized to view bookings for this trip");
         }
     }
 
     // =====================================
-    // BOOK TRIP (Race-condition safe)
+    // BOOK TRIP
     // =====================================
     @Override
     @Transactional
@@ -91,49 +105,42 @@ public class BookingServiceImpl implements BookingService {
 
         User traveler = getCurrentUser();
 
-        // Lock trip row to prevent race condition
         Trip trip = tripRepository.findTripForUpdate(request.getTripId())
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip not found with id: " + request.getTripId()));
 
-        // Trip must be active and not deleted
         if (Boolean.TRUE.equals(trip.getDeleted()) || !Boolean.TRUE.equals(trip.getActive())) {
-            throw new RuntimeException("Trip is not available for booking");
+            throw new BadRequestException("Trip is not available for booking");
         }
 
-        // Prevent booking past/ended trip
         if (trip.getEndDate() != null && trip.getEndDate().isBefore(LocalDate.now())) {
-            throw new RuntimeException("This trip has already ended");
+            throw new BadRequestException("This trip has already ended");
         }
 
-        // Validate seats
         if (request.getSeats() == null || request.getSeats() <= 0) {
-            throw new RuntimeException("Seats must be greater than 0");
+            throw new BadRequestException("Seats must be greater than 0");
         }
 
-        // Null safety for seat fields
         if (trip.getTotalSeats() == null || trip.getBookedSeats() == null) {
-            throw new RuntimeException("Trip seat configuration is invalid");
+            throw new BadRequestException("Trip seat configuration is invalid");
         }
 
         int availableSeats = trip.getTotalSeats() - trip.getBookedSeats();
 
         if (request.getSeats() > availableSeats) {
-            throw new RuntimeException("Not enough seats available");
+            throw new BadRequestException("Not enough seats available. Requested: "
+                    + request.getSeats() + ", Available: " + availableSeats);
         }
 
-        // Optional business rule: prevent planner from booking own trip
         if (trip.getPlanner() != null
                 && trip.getPlanner().getId() != null
                 && trip.getPlanner().getId().equals(traveler.getId())) {
-            throw new RuntimeException("You cannot book your own trip");
+            throw new BadRequestException("You cannot book your own trip");
         }
 
-        // Price validation
         if (trip.getBasePrice() == null) {
-            throw new RuntimeException("Trip price is not configured");
+            throw new BadRequestException("Trip price is not configured");
         }
 
-        // Reserve seats temporarily
         trip.setBookedSeats(trip.getBookedSeats() + request.getSeats());
         tripRepository.save(trip);
 
@@ -141,23 +148,20 @@ public class BookingServiceImpl implements BookingService {
                 trip.getBasePrice().multiply(BigDecimal.valueOf(request.getSeats()));
 
         Booking booking = new Booking();
-
         booking.setTrip(trip);
         booking.setTraveler(traveler);
         booking.setSeatsBooked(request.getSeats());
         booking.setTotalPrice(totalPrice);
-
-        // Booking initially pending
         booking.setStatus(BookingStatus.PENDING);
         booking.setPaymentStatus(PaymentStatus.PENDING);
-
         booking.setCreatedAt(LocalDateTime.now());
         booking.setUpdatedAt(LocalDateTime.now());
-
-        // Payment must complete within 10 minutes
         booking.setExpiresAt(LocalDateTime.now().plusMinutes(10));
 
         Booking savedBooking = bookingRepository.save(booking);
+
+        log.info("Booking created: bookingId={}, tripId={}, travelerId={}, seats={}",
+                savedBooking.getId(), trip.getId(), traveler.getId(), request.getSeats());
 
         return BookingMapper.toResponse(savedBooking);
     }
@@ -186,13 +190,12 @@ public class BookingServiceImpl implements BookingService {
         User currentUser = getCurrentUser();
 
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip not found with id: " + tripId));
 
         if (Boolean.TRUE.equals(trip.getDeleted())) {
-            throw new RuntimeException("Trip not found");
+            throw new ResourceNotFoundException("Trip not found with id: " + tripId);
         }
 
-        // Only owner planner/host can see trip bookings
         validateTripOwnership(trip, currentUser);
 
         List<Booking> bookings = bookingRepository.findByTripId(tripId);
@@ -212,41 +215,38 @@ public class BookingServiceImpl implements BookingService {
         User currentUser = getCurrentUser();
 
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
 
-        // Only traveler who owns booking can cancel
         validateBookingOwnership(booking, currentUser);
 
         if (booking.getStatus() == BookingStatus.CANCELLED) {
-            throw new RuntimeException("Booking already cancelled");
+            throw new BadRequestException("Booking is already cancelled");
         }
 
         if (booking.getStatus() == BookingStatus.COMPLETED) {
-            throw new RuntimeException("Completed booking cannot be cancelled");
+            throw new BadRequestException("Completed booking cannot be cancelled");
         }
 
         Trip trip = booking.getTrip();
 
         if (trip == null) {
-            throw new RuntimeException("Trip not found for this booking");
+            throw new ResourceNotFoundException("Trip not found for this booking");
         }
 
         if (trip.getBookedSeats() == null) {
-            throw new RuntimeException("Trip seat data is invalid");
+            throw new BadRequestException("Trip seat data is invalid");
         }
 
         if (booking.getSeatsBooked() == null) {
-            throw new RuntimeException("Booking seat data is invalid");
+            throw new BadRequestException("Booking seat data is invalid");
         }
 
-        // Release seats safely
         int updatedSeats = trip.getBookedSeats() - booking.getSeatsBooked();
         trip.setBookedSeats(Math.max(updatedSeats, 0));
         tripRepository.save(trip);
 
         booking.setStatus(BookingStatus.CANCELLED);
 
-        // If payment already done, later refund flow can handle it
         if (booking.getPaymentStatus() == PaymentStatus.PAID) {
             booking.setPaymentStatus(PaymentStatus.REFUNDED);
         } else {
@@ -254,7 +254,8 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setUpdatedAt(LocalDateTime.now());
-
         bookingRepository.save(booking);
+
+        log.info("Booking cancelled: bookingId={}, userId={}", bookingId, currentUser.getId());
     }
 }

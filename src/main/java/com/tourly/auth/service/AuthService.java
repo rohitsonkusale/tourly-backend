@@ -7,8 +7,8 @@ import com.tourly.auth.dto.response.UserResponse;
 
 public interface AuthService {
 
-    UserResponse registerUser(RegisterRequest request) throws Exception;
+    UserResponse registerUser(RegisterRequest request);
 
-    AuthResponse loginUser(LoginRequest request) throws Exception;
+    AuthResponse loginUser(LoginRequest request);
 
 }

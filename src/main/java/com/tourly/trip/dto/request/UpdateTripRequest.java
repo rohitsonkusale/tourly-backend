@@ -3,6 +3,10 @@ package com.tourly.trip.dto.request;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import com.tourly.trip.enums.CancellationPolicy;
+import com.tourly.trip.enums.TripCategory;
+import com.tourly.trip.enums.TripStatus;
+
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -32,6 +36,16 @@ public class UpdateTripRequest {
 
     @Positive(message = "Total seats must be greater than 0")
     private Integer totalSeats;
+
+    private Long destinationId;
+
+    private TripCategory category;
+
+    private CancellationPolicy cancellationPolicy;
+
+    private TripStatus status;
+
+    private Boolean active;
 
     public String getTitle() {
         return title;
@@ -95,5 +109,45 @@ public class UpdateTripRequest {
 
     public void setTotalSeats(Integer totalSeats) {
         this.totalSeats = totalSeats;
+    }
+
+    public Long getDestinationId() {
+        return destinationId;
+    }
+
+    public void setDestinationId(Long destinationId) {
+        this.destinationId = destinationId;
+    }
+
+    public TripCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(TripCategory category) {
+        this.category = category;
+    }
+
+    public CancellationPolicy getCancellationPolicy() {
+        return cancellationPolicy;
+    }
+
+    public void setCancellationPolicy(CancellationPolicy cancellationPolicy) {
+        this.cancellationPolicy = cancellationPolicy;
+    }
+
+    public TripStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(TripStatus status) {
+        this.status = status;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
     }
 }
