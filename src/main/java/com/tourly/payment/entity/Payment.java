@@ -44,6 +44,30 @@ public class Payment {
     @Column(name = "refund_reason", length = 255)
     private String refundReason;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stage_id")
+    private PaymentStage stage;
+
+    @Column(name = "razorpay_signature")
+    private String razorpaySignature;
+
+    @Column(name = "gateway_fee")
+    private BigDecimal gatewayFee = BigDecimal.ZERO;
+
+    private String currency = "INR";
+
+    @Column(name = "payment_method")
+    private String paymentMethod;
+
+    @Column(name = "failure_reason")
+    private String failureReason;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     // getters and setters
 
     /**
@@ -174,6 +198,70 @@ public class Payment {
 
     public void setRefundReason(String refundReason) {
         this.refundReason = refundReason;
+    }
+
+    public PaymentStage getStage() {
+        return stage;
+    }
+
+    public void setStage(PaymentStage stage) {
+        this.stage = stage;
+    }
+
+    public String getRazorpaySignature() {
+        return razorpaySignature;
+    }
+
+    public void setRazorpaySignature(String razorpaySignature) {
+        this.razorpaySignature = razorpaySignature;
+    }
+
+    public BigDecimal getGatewayFee() {
+        return gatewayFee;
+    }
+
+    public void setGatewayFee(BigDecimal gatewayFee) {
+        this.gatewayFee = gatewayFee;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getFailureReason() {
+        return failureReason;
+    }
+
+    public void setFailureReason(String failureReason) {
+        this.failureReason = failureReason;
+    }
+
+    public LocalDateTime getPaidAt() {
+        return paidAt;
+    }
+
+    public void setPaidAt(LocalDateTime paidAt) {
+        this.paidAt = paidAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
 }

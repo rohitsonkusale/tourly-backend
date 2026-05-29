@@ -174,8 +174,8 @@ public class AdminPlannerVerificationServiceImpl implements AdminPlannerVerifica
         response.setSpecialization(verification.getSpecialization());
         response.setExperienceYears(verification.getExperienceYears());
 
-        response.setMaskedAadhaarNumber(maskAadhaar(verification.getAadhaarNumber()));
-        response.setMaskedPanNumber(maskPan(verification.getPanNumber()));
+        response.setMaskedAadhaarNumber(maskAadhaar(verification.getUser().getAadhaarNumber()));
+        response.setMaskedPanNumber(maskPan(verification.getUser().getPanNumber()));
 
         response.setAadhaarDocumentUrl(verification.getAadhaarDocumentUrl());
         response.setPanDocumentUrl(verification.getPanDocumentUrl());

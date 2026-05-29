@@ -31,3 +31,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local Scratch / Crash Logs ###
+*.log
+*.class
+/FixDb.java
+/check.sql
+/drop_flyway.sql
+/fix_v3.sql
+/recreate_db.sql
+/out.txt
+/test.bat

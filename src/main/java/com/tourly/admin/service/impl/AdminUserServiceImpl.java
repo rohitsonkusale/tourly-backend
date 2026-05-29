@@ -1,6 +1,7 @@
 package com.tourly.admin.service.impl;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,7 +32,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     public Page<AdminUserResponse> getAllUsers(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
-        return userRepository.findByDeletedAtIsNull(pageable)
+        return userRepository.findByDeletedDateIsNull(pageable)
                 .map(this::mapToResponse);
     }
 
@@ -39,13 +40,13 @@ public class AdminUserServiceImpl implements AdminUserService {
     public Page<AdminUserResponse> getDeletedUsers(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
-        return userRepository.findByDeletedAtIsNotNull(pageable)
+        return userRepository.findByDeletedDateIsNotNull(pageable)
                 .map(this::mapToResponse);
     }
 
     @Override
     public AdminUserResponse getUserById(Long userId) {
-        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+        User user = userRepository.findByIdAndDeletedDateIsNull(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Active user not found with ID: " + userId));
 
         return mapToResponse(user);
@@ -62,7 +63,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new IllegalArgumentException("Invalid role name: " + roleName);
         }
 
-        return userRepository.findByRole_NameAndDeletedAtIsNull(parsedRole, pageable)
+        return userRepository.findByRole_NameAndDeletedDateIsNull(parsedRole, pageable)
                 .map(this::mapToResponse);
     }
 
@@ -70,13 +71,13 @@ public class AdminUserServiceImpl implements AdminUserService {
     public Page<AdminUserResponse> getUsersByStatus(AccountStatus accountStatus, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
-        return userRepository.findByAccountStatusAndDeletedAtIsNull(accountStatus, pageable)
+        return userRepository.findByAccountStatusAndDeletedDateIsNull(accountStatus, pageable)
                 .map(this::mapToResponse);
     }
 
     @Override
     public AdminUserResponse suspendUser(Long userId) {
-        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+        User user = userRepository.findByIdAndDeletedDateIsNull(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Active user not found with ID: " + userId));
 
         String currentAdminEmail = getCurrentLoggedInUserEmail();
@@ -108,7 +109,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     public AdminUserResponse reactivateUser(Long userId) {
-        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+        User user = userRepository.findByIdAndDeletedDateIsNull(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Active user not found with ID: " + userId));
 
         if (user.getAccountStatus() == AccountStatus.ACTIVE) {
@@ -127,7 +128,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     public AdminUserResponse softDeleteUser(Long userId) {
-        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+        User user = userRepository.findByIdAndDeletedDateIsNull(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Active user not found with ID: " + userId));
 
         String currentAdminEmail = getCurrentLoggedInUserEmail();
@@ -143,7 +144,8 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new IllegalStateException("User is already marked as deleted.");
         }
 
-        user.setDeletedAt(LocalDateTime.now());
+        user.setDeletedDate(LocalDate.now());
+        user.setDeletedTime(LocalTime.now());
         user.setAccountStatus(AccountStatus.DELETED);
 
         User updatedUser = userRepository.save(user);
@@ -155,11 +157,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
 
-        if (user.getDeletedAt() == null) {
+        if (user.getDeletedDate() == null) {
             throw new IllegalStateException("User is not soft deleted.");
         }
 
-        user.setDeletedAt(null);
+        user.setDeletedDate(null);
+        user.setDeletedTime(null);
         user.setAccountStatus(AccountStatus.ACTIVE);
 
         User updatedUser = userRepository.save(user);
@@ -195,9 +198,12 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getEmailVerified(),
                 user.getPhoneVerified(),
                 user.getKycVerified(),
-                user.getLastLogin(),
-                user.getCreatedAt(),
-                user.getUpdatedAt()
+                user.getLastLoginDate(),
+                user.getLastLoginTime(),
+                user.getCreatedDate(),
+                user.getCreatedTime(),
+                user.getUpdatedDate(),
+                user.getUpdatedTime()
         );
     }
 }

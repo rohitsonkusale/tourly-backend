@@ -16,19 +16,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
     Optional<User> findByPhone(String phone);
+    Optional<User> findByGoogleId(String googleId);
     Boolean existsByEmail(String email);
     Boolean existsByPhone(String phone);
 
     // =========================
     // Admin User Management
     // =========================
-    Page<User> findByDeletedAtIsNull(Pageable pageable);
+    Page<User> findByDeletedDateIsNull(Pageable pageable);
 
-    Page<User> findByDeletedAtIsNotNull(Pageable pageable);
+    Page<User> findByDeletedDateIsNotNull(Pageable pageable);
 
-    Page<User> findByAccountStatusAndDeletedAtIsNull(AccountStatus accountStatus, Pageable pageable);
+    Page<User> findByAccountStatusAndDeletedDateIsNull(AccountStatus accountStatus, Pageable pageable);
 
-    Page<User> findByRole_NameAndDeletedAtIsNull(RoleName roleName, Pageable pageable);
+    Page<User> findByRole_NameAndDeletedDateIsNull(RoleName roleName, Pageable pageable);
 
-    Optional<User> findByIdAndDeletedAtIsNull(Long id);
-}
+    Optional<User> findByIdAndDeletedDateIsNull(Long id);
+}

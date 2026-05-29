@@ -54,8 +54,9 @@ public class PlannerVerificationServiceImpl implements PlannerVerificationServic
         verification.setBio(request.getBio() != null ? request.getBio().trim() : null);
         verification.setSpecialization(request.getSpecialization() != null ? request.getSpecialization().trim() : null);
         verification.setExperienceYears(request.getExperienceYears());
-        verification.setAadhaarNumber(request.getAadhaarNumber().trim());
-        verification.setPanNumber(request.getPanNumber().trim().toUpperCase());
+        currentUser.setAadhaarNumber(request.getAadhaarNumber().trim());
+        currentUser.setPanNumber(request.getPanNumber().trim().toUpperCase());
+        userRepository.save(currentUser);
         verification.setAadhaarDocumentUrl(request.getAadhaarDocumentUrl() != null ? request.getAadhaarDocumentUrl().trim() : null);
         verification.setPanDocumentUrl(request.getPanDocumentUrl() != null ? request.getPanDocumentUrl().trim() : null);
 
@@ -130,8 +131,8 @@ public class PlannerVerificationServiceImpl implements PlannerVerificationServic
         response.setSpecialization(verification.getSpecialization());
         response.setExperienceYears(verification.getExperienceYears());
 
-        response.setMaskedAadhaarNumber(maskAadhaar(verification.getAadhaarNumber()));
-        response.setMaskedPanNumber(maskPan(verification.getPanNumber()));
+        response.setMaskedAadhaarNumber(maskAadhaar(verification.getUser().getAadhaarNumber()));
+        response.setMaskedPanNumber(maskPan(verification.getUser().getPanNumber()));
 
         response.setAadhaarDocumentUrl(verification.getAadhaarDocumentUrl());
         response.setPanDocumentUrl(verification.getPanDocumentUrl());

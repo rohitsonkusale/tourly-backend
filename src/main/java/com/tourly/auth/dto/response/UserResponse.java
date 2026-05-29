@@ -10,7 +10,9 @@ public class UserResponse {
     private Boolean emailVerified;
     private Boolean phoneVerified;
     private Boolean kycVerified;
+    private Boolean adminApproved;
     private String roleName;
+    private String avatar;
 
     // Getters & Setters
     public Long getId() { return id; }
@@ -37,6 +39,12 @@ public class UserResponse {
     public Boolean getKycVerified() { return kycVerified; }
     public void setKycVerified(Boolean kycVerified) { this.kycVerified = kycVerified; }
 
+    public Boolean getAdminApproved() { return adminApproved; }
+    public void setAdminApproved(Boolean adminApproved) { this.adminApproved = adminApproved; }
+
     public String getRoleName() { return roleName; }
     public void setRoleName(String roleName) { this.roleName = roleName; }
+
+    public String getAvatar() { return avatar; }
+    public void setAvatar(String avatar) { this.avatar = avatar; }
 }

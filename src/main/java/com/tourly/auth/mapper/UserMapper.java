@@ -37,6 +37,8 @@ public class UserMapper {
         res.setEmailVerified(user.getEmailVerified());
         res.setPhoneVerified(user.getPhoneVerified());
         res.setKycVerified(user.getKycVerified());
+        res.setAdminApproved(user.getAdminApproved());
+        res.setAvatar(user.getAvatar());
 
         if (user.getRole() != null && user.getRole().getName() != null) {
             res.setRoleName(user.getRole().getName().name());

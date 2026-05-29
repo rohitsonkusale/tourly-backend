@@ -61,6 +61,28 @@ public class Trip {
     @Column(name = "cancellation_policy")
     private CancellationPolicy cancellationPolicy;
 
+    @ManyToOne
+    @JoinColumn(name = "host_id")
+    private User host;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status")
+    private ApprovalStatus approvalStatus;
+
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
+
+    private String difficulty;
+
+    @Column(name = "group_size_label")
+    private String groupSizeLabel;
+
+    @Column(name = "trip_type")
+    private String tripType;
+
+    @Column(name = "best_time")
+    private String bestTime;
+
     @Column(name = "is_active")
     private Boolean active = true;
 
@@ -107,6 +129,10 @@ public class Trip {
         // Keep your existing business lifecycle default
         if (this.status == null) {
             this.status = TripStatus.DRAFT;
+        }
+
+        if (this.approvalStatus == null) {
+            this.approvalStatus = ApprovalStatus.PENDING;
         }
     }
 
@@ -277,5 +303,61 @@ public class Trip {
 
     public void setDeletedAt(LocalDateTime deletedAt) {
         this.deletedAt = deletedAt;
+    }
+
+    public User getHost() {
+        return host;
+    }
+
+    public void setHost(User host) {
+        this.host = host;
+    }
+
+    public ApprovalStatus getApprovalStatus() {
+        return approvalStatus;
+    }
+
+    public void setApprovalStatus(ApprovalStatus approvalStatus) {
+        this.approvalStatus = approvalStatus;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public void setRejectionReason(String rejectionReason) {
+        this.rejectionReason = rejectionReason;
+    }
+
+    public String getDifficulty() {
+        return difficulty;
+    }
+
+    public void setDifficulty(String difficulty) {
+        this.difficulty = difficulty;
+    }
+
+    public String getGroupSizeLabel() {
+        return groupSizeLabel;
+    }
+
+    public void setGroupSizeLabel(String groupSizeLabel) {
+        this.groupSizeLabel = groupSizeLabel;
+    }
+
+    public String getTripType() {
+        return tripType;
+    }
+
+    public void setTripType(String tripType) {
+        this.tripType = tripType;
+    }
+
+    public String getBestTime() {
+        return bestTime;
+    }
+
+    public void setBestTime(String bestTime) {
+        this.bestTime = bestTime;
     }
 }

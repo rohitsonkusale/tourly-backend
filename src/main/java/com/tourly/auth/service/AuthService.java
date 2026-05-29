@@ -1,5 +1,6 @@
 package com.tourly.auth.service;
 
+import com.tourly.auth.dto.request.GoogleAuthRequest;
 import com.tourly.auth.dto.request.LoginRequest;
 import com.tourly.auth.dto.request.RegisterRequest;
 import com.tourly.auth.dto.response.AuthResponse;
@@ -11,4 +12,5 @@ public interface AuthService {
 
     AuthResponse loginUser(LoginRequest request);
 
+    AuthResponse googleAuth(GoogleAuthRequest request);
 }

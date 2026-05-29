@@ -1,6 +1,7 @@
 package com.tourly.admin.dto.response;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 public class AdminUserResponse {
 
@@ -13,17 +14,21 @@ public class AdminUserResponse {
     private Boolean emailVerified;
     private Boolean phoneVerified;
     private Boolean kycVerified;
-    private LocalDateTime lastLogin;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private LocalDate lastLoginDate;
+    private LocalTime lastLoginTime;
+    private LocalDate createdDate;
+    private LocalTime createdTime;
+    private LocalDate updatedDate;
+    private LocalTime updatedTime;
 
     public AdminUserResponse() {
     }
 
     public AdminUserResponse(Long id, String fullName, String email, String phone, String roleName,
                              String accountStatus, Boolean emailVerified, Boolean phoneVerified,
-                             Boolean kycVerified, LocalDateTime lastLogin,
-                             LocalDateTime createdAt, LocalDateTime updatedAt) {
+                             Boolean kycVerified, LocalDate lastLoginDate, LocalTime lastLoginTime,
+                             LocalDate createdDate, LocalTime createdTime,
+                             LocalDate updatedDate, LocalTime updatedTime) {
         this.id = id;
         this.fullName = fullName;
         this.email = email;
@@ -33,9 +38,12 @@ public class AdminUserResponse {
         this.emailVerified = emailVerified;
         this.phoneVerified = phoneVerified;
         this.kycVerified = kycVerified;
-        this.lastLogin = lastLogin;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
+        this.lastLoginDate = lastLoginDate;
+        this.lastLoginTime = lastLoginTime;
+        this.createdDate = createdDate;
+        this.createdTime = createdTime;
+        this.updatedDate = updatedDate;
+        this.updatedTime = updatedTime;
     }
 
     public Long getId() { return id; }
@@ -65,12 +73,21 @@ public class AdminUserResponse {
     public Boolean getKycVerified() { return kycVerified; }
     public void setKycVerified(Boolean kycVerified) { this.kycVerified = kycVerified; }
 
-    public LocalDateTime getLastLogin() { return lastLogin; }
-    public void setLastLogin(LocalDateTime lastLogin) { this.lastLogin = lastLogin; }
+    public LocalDate getLastLoginDate() { return lastLoginDate; }
+    public void setLastLoginDate(LocalDate lastLoginDate) { this.lastLoginDate = lastLoginDate; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalTime getLastLoginTime() { return lastLoginTime; }
+    public void setLastLoginTime(LocalTime lastLoginTime) { this.lastLoginTime = lastLoginTime; }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public LocalDate getCreatedDate() { return createdDate; }
+    public void setCreatedDate(LocalDate createdDate) { this.createdDate = createdDate; }
+
+    public LocalTime getCreatedTime() { return createdTime; }
+    public void setCreatedTime(LocalTime createdTime) { this.createdTime = createdTime; }
+
+    public LocalDate getUpdatedDate() { return updatedDate; }
+    public void setUpdatedDate(LocalDate updatedDate) { this.updatedDate = updatedDate; }
+
+    public LocalTime getUpdatedTime() { return updatedTime; }
+    public void setUpdatedTime(LocalTime updatedTime) { this.updatedTime = updatedTime; }
 }

@@ -38,6 +38,12 @@ public class RegisterRequest {
     )
     private String roleName; // should match RoleName enum: "TRAVELER", "PLANNER", "HOST"
 
+    private String aadhaarNumber;
+    private String panNumber;
+
+    private String instagramUsername;
+    private String websiteUrl;
+
     // Getters & Setters
     public String getFullName() {
         return fullName;
@@ -77,5 +83,37 @@ public class RegisterRequest {
 
     public void setRoleName(String roleName) {
         this.roleName = roleName;
+    }
+
+    public String getAadhaarNumber() {
+        return aadhaarNumber;
+    }
+
+    public void setAadhaarNumber(String aadhaarNumber) {
+        this.aadhaarNumber = aadhaarNumber;
+    }
+
+    public String getPanNumber() {
+        return panNumber;
+    }
+
+    public void setPanNumber(String panNumber) {
+        this.panNumber = panNumber;
+    }
+
+    public String getInstagramUsername() {
+        return instagramUsername;
+    }
+
+    public void setInstagramUsername(String instagramUsername) {
+        this.instagramUsername = instagramUsername;
+    }
+
+    public String getWebsiteUrl() {
+        return websiteUrl;
+    }
+
+    public void setWebsiteUrl(String websiteUrl) {
+        this.websiteUrl = websiteUrl;
     }
 }

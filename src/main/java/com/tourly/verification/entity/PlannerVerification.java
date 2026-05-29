@@ -44,11 +44,7 @@ public class PlannerVerification {
     @Column(name = "experience_years")
     private Integer experienceYears;
 
-    @Column(name = "aadhaar_number", nullable = false, length = 12)
-    private String aadhaarNumber;
 
-    @Column(name = "pan_number", nullable = false, length = 10)
-    private String panNumber;
 
     @Column(name = "aadhaar_document_url", length = 500)
     private String aadhaarDocumentUrl;
@@ -146,21 +142,7 @@ public class PlannerVerification {
         this.experienceYears = experienceYears;
     }
 
-    public String getAadhaarNumber() {
-        return aadhaarNumber;
-    }
 
-    public void setAadhaarNumber(String aadhaarNumber) {
-        this.aadhaarNumber = aadhaarNumber;
-    }
-
-    public String getPanNumber() {
-        return panNumber;
-    }
-
-    public void setPanNumber(String panNumber) {
-        this.panNumber = panNumber;
-    }
 
     public String getAadhaarDocumentUrl() {
         return aadhaarDocumentUrl;

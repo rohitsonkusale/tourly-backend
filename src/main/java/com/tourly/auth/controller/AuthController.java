@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.tourly.auth.dto.request.GoogleAuthRequest;
 import com.tourly.auth.dto.request.LoginRequest;
 import com.tourly.auth.dto.request.RegisterRequest;
 import com.tourly.auth.dto.response.AuthResponse;
@@ -51,5 +52,18 @@ public class AuthController {
         AuthResponse response = authService.loginUser(request);
 
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+    }
+
+    @PostMapping("/google")
+    @Operation(
+            summary = "Authenticate with Google OAuth",
+            description = "Verifies Google ID token and authenticates/registers user, returning JWT token"
+    )
+    public ResponseEntity<ApiResponse<AuthResponse>> googleAuth(
+            @Valid @RequestBody GoogleAuthRequest request) {
+
+        AuthResponse response = authService.googleAuth(request);
+
+        return ResponseEntity.ok(ApiResponse.success("Google authentication successful", response));
     }
 }

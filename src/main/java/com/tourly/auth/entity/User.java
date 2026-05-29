@@ -1,7 +1,8 @@
 package com.tourly.auth.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "users")
@@ -20,8 +21,26 @@ public class User {
     @Column(unique = true, length = 20)
     private String phone;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String password;
+
+    @Column(name = "google_id", unique = true, length = 255)
+    private String googleId;
+
+    @Column(name = "avatar", length = 500)
+    private String avatar;
+
+    @Column(name = "aadhaar_number", unique = true, length = 12)
+    private String aadhaarNumber;
+
+    @Column(name = "pan_number", unique = true, length = 10)
+    private String panNumber;
+
+    @Column(name = "instagram_username", length = 255)
+    private String instagramUsername;
+
+    @Column(name = "website_url", length = 500)
+    private String websiteUrl;
 
     @ManyToOne
     @JoinColumn(name = "role_id")
@@ -44,17 +63,32 @@ public class User {
     @Column(name = "kyc_verified", nullable = false)
     private Boolean kycVerified = false;
 
+    @Column(name = "admin_approval_flag", nullable = false)
+    private Boolean adminApproved = false;
+
     @Column(name = "last_login")
-    private LocalDateTime lastLogin;
+    private LocalDate lastLoginDate;
 
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "last_login_time")
+    private LocalTime lastLoginTime;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Column(name = "created_date", updatable = false)
+    private LocalDate createdDate;
 
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
+    @Column(name = "created_time", updatable = false)
+    private LocalTime createdTime;
+
+    @Column(name = "updated_date")
+    private LocalDate updatedDate;
+
+    @Column(name = "updated_time")
+    private LocalTime updatedTime;
+
+    @Column(name = "deleted_date")
+    private LocalDate deletedDate;
+
+    @Column(name = "deleted_time")
+    private LocalTime deletedTime;
 
     // =========================
     // Constructors
@@ -64,11 +98,15 @@ public class User {
         this.emailVerified = false;
         this.phoneVerified = false;
         this.kycVerified = false;
+        this.adminApproved = false;
     }
 
     public User(Long id, String fullName, String email, String phone, String password, AccountStatus accountStatus,
-                Boolean emailVerified, Boolean phoneVerified, Boolean kycVerified,
-                LocalDateTime lastLogin, LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime deletedAt) {
+                Boolean emailVerified, Boolean phoneVerified, Boolean kycVerified, Boolean adminApproved, String aadhaarNumber, String panNumber,
+                LocalDate lastLoginDate, LocalTime lastLoginTime,
+                LocalDate createdDate, LocalTime createdTime,
+                LocalDate updatedDate, LocalTime updatedTime,
+                LocalDate deletedDate, LocalTime deletedTime) {
         this.id = id;
         this.fullName = fullName;
         this.email = email;
@@ -78,10 +116,17 @@ public class User {
         this.emailVerified = emailVerified;
         this.phoneVerified = phoneVerified;
         this.kycVerified = kycVerified;
-        this.lastLogin = lastLogin;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-        this.deletedAt = deletedAt;
+        this.adminApproved = adminApproved;
+        this.aadhaarNumber = aadhaarNumber;
+        this.panNumber = panNumber;
+        this.lastLoginDate = lastLoginDate;
+        this.lastLoginTime = lastLoginTime;
+        this.createdDate = createdDate;
+        this.createdTime = createdTime;
+        this.updatedDate = updatedDate;
+        this.updatedTime = updatedTime;
+        this.deletedDate = deletedDate;
+        this.deletedTime = deletedTime;
     }
 
     // =========================
@@ -102,6 +147,24 @@ public class User {
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
 
+    public String getGoogleId() { return googleId; }
+    public void setGoogleId(String googleId) { this.googleId = googleId; }
+
+    public String getAvatar() { return avatar; }
+    public void setAvatar(String avatar) { this.avatar = avatar; }
+
+    public String getAadhaarNumber() { return aadhaarNumber; }
+    public void setAadhaarNumber(String aadhaarNumber) { this.aadhaarNumber = aadhaarNumber; }
+
+    public String getPanNumber() { return panNumber; }
+    public void setPanNumber(String panNumber) { this.panNumber = panNumber; }
+
+    public String getInstagramUsername() { return instagramUsername; }
+    public void setInstagramUsername(String instagramUsername) { this.instagramUsername = instagramUsername; }
+
+    public String getWebsiteUrl() { return websiteUrl; }
+    public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
+
     public AccountStatus getAccountStatus() { return accountStatus; }
     public void setAccountStatus(AccountStatus accountStatus) { this.accountStatus = accountStatus; }
 
@@ -114,30 +177,48 @@ public class User {
     public Boolean getKycVerified() { return kycVerified; }
     public void setKycVerified(Boolean kycVerified) { this.kycVerified = kycVerified; }
 
-    public LocalDateTime getLastLogin() { return lastLogin; }
-    public void setLastLogin(LocalDateTime lastLogin) { this.lastLogin = lastLogin; }
+    public Boolean getAdminApproved() { return adminApproved; }
+    public void setAdminApproved(Boolean adminApproved) { this.adminApproved = adminApproved; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDate getLastLoginDate() { return lastLoginDate; }
+    public void setLastLoginDate(LocalDate lastLoginDate) { this.lastLoginDate = lastLoginDate; }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public LocalTime getLastLoginTime() { return lastLoginTime; }
+    public void setLastLoginTime(LocalTime lastLoginTime) { this.lastLoginTime = lastLoginTime; }
 
-    public LocalDateTime getDeletedAt() { return deletedAt; }
-    public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public LocalDate getCreatedDate() { return createdDate; }
+    public void setCreatedDate(LocalDate createdDate) { this.createdDate = createdDate; }
+
+    public LocalTime getCreatedTime() { return createdTime; }
+    public void setCreatedTime(LocalTime createdTime) { this.createdTime = createdTime; }
+
+    public LocalDate getUpdatedDate() { return updatedDate; }
+    public void setUpdatedDate(LocalDate updatedDate) { this.updatedDate = updatedDate; }
+
+    public LocalTime getUpdatedTime() { return updatedTime; }
+    public void setUpdatedTime(LocalTime updatedTime) { this.updatedTime = updatedTime; }
+
+    public LocalDate getDeletedDate() { return deletedDate; }
+    public void setDeletedDate(LocalDate deletedDate) { this.deletedDate = deletedDate; }
+
+    public LocalTime getDeletedTime() { return deletedTime; }
+    public void setDeletedTime(LocalTime deletedTime) { this.deletedTime = deletedTime; }
 
     // =========================
     // Lifecycle Hooks
     // =========================
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        createdDate = LocalDate.now();
+        createdTime = LocalTime.now();
+        updatedDate = LocalDate.now();
+        updatedTime = LocalTime.now();
         if (accountStatus == null) accountStatus = AccountStatus.ACTIVE;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedDate = LocalDate.now();
+        updatedTime = LocalTime.now();
     }
 }
