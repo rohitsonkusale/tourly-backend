@@ -176,7 +176,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Show friendly user feedback if account does not exist
         if (userOpt.isEmpty()) {
-            throw new BadCredentialsException("Email or phone is not registered. Please sign up!");
+            throw new BadCredentialsException("You don't have an account yet. First signup then login");
         }
 
         User user = userOpt.get();
@@ -246,96 +246,41 @@ public class AuthServiceImpl implements AuthService {
             userOpt = userRepository.findByEmail(email);
         }
 
-        User user;
-        if (userOpt.isPresent()) {
-            user = userOpt.get();
-
-            // Link Google ID if not already done
-            if (user.getGoogleId() == null) {
-                user.setGoogleId(googleId);
-            }
-
-            // Sync avatar if missing
-            if (user.getAvatar() == null) {
-                user.setAvatar(pictureUrl);
-            }
-
-            // Block Host/Planner accounts that are not yet admin approved
-            if ((user.getRole().getName() == RoleName.HOST || user.getRole().getName() == RoleName.PLANNER) && !Boolean.TRUE.equals(user.getAdminApproved())) {
-                throw new BadRequestException(
-                        "PENDING_VERIFICATION:Your Host/Planner request has already been submitted. " +
-                        "Verification is still in process. It typically takes 7-8 hours to verify your details. " +
-                        "Please wait until your account is approved by the admin."
-                );
-            }
-
-            // Block other non-active accounts
-            if (user.getAccountStatus() != AccountStatus.ACTIVE && !Boolean.TRUE.equals(user.getAdminApproved())) {
-                throw new BadRequestException(
-                        "Your account is not active. Current status: " + user.getAccountStatus().name()
-                );
-            }
-
-            user.setLastLoginDate(LocalDate.now());
-            user.setLastLoginTime(LocalTime.now());
-            user = userRepository.save(user);
-        } else {
-            // New user account creation
-            String roleNameInput = "TRAVELER";
-            if (request.getRole() != null && !request.getRole().trim().isEmpty()) {
-                roleNameInput = request.getRole().trim().toUpperCase();
-            }
-
-            RoleName roleNameEnumTemp;
-            try {
-                roleNameEnumTemp = RoleName.valueOf(roleNameInput);
-            } catch (IllegalArgumentException e) {
-                roleNameEnumTemp = RoleName.TRAVELER;
-            }
-            final RoleName roleNameEnum = roleNameEnumTemp;
-
-            Role role = roleRepository.findByName(roleNameEnum)
-                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleNameEnum));
-
-            if (roleNameEnum == RoleName.HOST || roleNameEnum == RoleName.PLANNER) {
-                validateKycDetails(request.getAadhaarNumber(), request.getPanNumber());
-            }
-
-            user = new User();
-            user.setFullName(name != null ? name : "Google User");
-            user.setEmail(email);
-            user.setGoogleId(googleId);
-            user.setAvatar(pictureUrl);
-            user.setRole(role);
-            user.setEmailVerified(payload.getEmailVerified());
-            user.setPhoneVerified(false);
-            user.setKycVerified(false);
-            user.setLastLoginDate(LocalDate.now());
-            user.setLastLoginTime(LocalTime.now());
-
-            // Host/Planner accounts require admin approval
-            if (roleNameEnum == RoleName.HOST || roleNameEnum == RoleName.PLANNER) {
-                user.setAccountStatus(AccountStatus.PENDING_VERIFICATION);
-                user.setAadhaarNumber(request.getAadhaarNumber());
-                user.setPanNumber(request.getPanNumber().toUpperCase());
-                user.setInstagramUsername(request.getInstagramUsername());
-                user.setWebsiteUrl(request.getWebsiteUrl());
-            } else {
-                user.setAccountStatus(AccountStatus.ACTIVE);
-            }
-
-            user = userRepository.save(user);
-
-            if (roleNameEnum == RoleName.HOST || roleNameEnum == RoleName.PLANNER) {
-                createKycVerification(user, roleNameEnum);
-                // Return a special response indicating pending verification (no token)
-                throw new BadRequestException(
-                        "SIGNUP_PENDING_VERIFICATION:Your " + roleNameEnum.name().toLowerCase() + " request has been submitted successfully! " +
-                        "It typically takes 7-8 hours to verify your details. " +
-                        "You will be able to log in once your account is approved by the admin."
-                );
-            }
+        if (userOpt.isEmpty()) {
+            throw new BadCredentialsException("You don't have an account yet. First signup then login");
         }
+
+        User user = userOpt.get();
+
+        // Link Google ID if not already done
+        if (user.getGoogleId() == null) {
+            user.setGoogleId(googleId);
+        }
+
+        // Sync avatar if missing
+        if (user.getAvatar() == null) {
+            user.setAvatar(pictureUrl);
+        }
+
+        // Block Host/Planner accounts that are not yet admin approved
+        if ((user.getRole().getName() == RoleName.HOST || user.getRole().getName() == RoleName.PLANNER) && !Boolean.TRUE.equals(user.getAdminApproved())) {
+            throw new BadRequestException(
+                    "PENDING_VERIFICATION:Your Host/Planner request has already been submitted. " +
+                    "Verification is still in process. It typically takes 7-8 hours to verify your details. " +
+                    "Please wait until your account is approved by the admin."
+            );
+        }
+
+        // Block other non-active accounts
+        if (user.getAccountStatus() != AccountStatus.ACTIVE && !Boolean.TRUE.equals(user.getAdminApproved())) {
+            throw new BadRequestException(
+                    "Your account is not active. Current status: " + user.getAccountStatus().name()
+            );
+        }
+
+        user.setLastLoginDate(LocalDate.now());
+        user.setLastLoginTime(LocalTime.now());
+        user = userRepository.save(user);
 
         // Generate JWT token (only for ACTIVE accounts — travelers)
         String token = jwtService.generateToken(user);
