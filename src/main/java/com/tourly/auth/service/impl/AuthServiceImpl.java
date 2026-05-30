@@ -287,4 +287,11 @@ public class AuthServiceImpl implements AuthService {
 
         return new AuthResponse(token, UserMapper.toResponse(user));
     }
+
+    @Override
+    public UserResponse getCurrentUser(Long userId) {
+        User user = userRepository.findByIdAndDeletedDateIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        return UserMapper.toResponse(user);
+    }
 }

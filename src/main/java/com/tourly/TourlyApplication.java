@@ -5,9 +5,16 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.tourly.trip.entity.Destination;
 import com.tourly.trip.repository.DestinationRepository;
+import com.tourly.auth.entity.AccountStatus;
+import com.tourly.auth.entity.Role;
+import com.tourly.auth.entity.RoleName;
+import com.tourly.auth.entity.User;
+import com.tourly.auth.repository.RoleRepository;
+import com.tourly.auth.repository.UserRepository;
 
 @SpringBootApplication
 @EnableScheduling
@@ -18,15 +25,19 @@ public class TourlyApplication {
 	}
 
 	@Bean
-	public CommandLineRunner seedDatabase(DestinationRepository destinationRepository, com.tourly.auth.repository.RoleRepository roleRepository) {
+	public CommandLineRunner seedDatabase(
+			DestinationRepository destinationRepository,
+			RoleRepository roleRepository,
+			UserRepository userRepository,
+			PasswordEncoder passwordEncoder) {
 		return args -> {
 			// 1️⃣ Seed User Roles
 			if (roleRepository.count() == 0) {
 				System.out.println("Seeding default roles in the database...");
-				createRole(roleRepository, com.tourly.auth.entity.RoleName.TRAVELER, "Standard Traveler Role");
-				createRole(roleRepository, com.tourly.auth.entity.RoleName.PLANNER, "Trip Planner Role");
-				createRole(roleRepository, com.tourly.auth.entity.RoleName.HOST, "Trip Host Role");
-				createRole(roleRepository, com.tourly.auth.entity.RoleName.ADMIN, "System Administrator Role");
+				createRole(roleRepository, RoleName.TRAVELER, "Standard Traveler Role");
+				createRole(roleRepository, RoleName.PLANNER, "Trip Planner Role");
+				createRole(roleRepository, RoleName.HOST, "Trip Host Role");
+				createRole(roleRepository, RoleName.ADMIN, "System Administrator Role");
 				System.out.println("Default roles successfully seeded!");
 			}
 
@@ -46,6 +57,32 @@ public class TourlyApplication {
 				createDestination(destinationRepository, "India", "Ladakh", "Leh", 34.1526, 77.5771);
 				
 				System.out.println("Default destinations successfully seeded!");
+			}
+
+			// 3️⃣ Seed Admin User
+			if (!userRepository.existsByEmail("admin")) {
+				System.out.println("Seeding default admin user...");
+				Role adminRole = roleRepository.findByName(RoleName.ADMIN)
+						.orElseGet(() -> {
+							Role r = new Role();
+							r.setName(RoleName.ADMIN);
+							r.setDescription("System Administrator Role");
+							r.setIsActive(true);
+							return roleRepository.save(r);
+						});
+				User admin = new User();
+				admin.setFullName("Admin");
+				admin.setEmail("admin");
+				admin.setPhone("0000000000");
+				admin.setPassword(passwordEncoder.encode("SuperAdmin@2026"));
+				admin.setRole(adminRole);
+				admin.setAccountStatus(AccountStatus.ACTIVE);
+				admin.setEmailVerified(true);
+				admin.setPhoneVerified(true);
+				admin.setKycVerified(true);
+				admin.setAdminApproved(true);
+				userRepository.save(admin);
+				System.out.println("Default admin user successfully seeded!");
 			}
 		};
 	}

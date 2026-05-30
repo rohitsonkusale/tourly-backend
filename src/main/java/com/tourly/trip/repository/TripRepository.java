@@ -123,4 +123,9 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM Trip t WHERE t.id = :id")
     Optional<Trip> findTripForUpdate(@Param("id") Long id);
+
+    // ========================================
+    // ADMIN DASHBOARD STATS
+    // ========================================
+    long countByDeletedFalse();
 }

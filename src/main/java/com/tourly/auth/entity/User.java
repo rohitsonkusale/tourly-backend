@@ -1,5 +1,6 @@
 package com.tourly.auth.entity;
 
+import com.tourly.common.converter.YNBooleanConverter;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -63,7 +64,8 @@ public class User {
     @Column(name = "kyc_verified", nullable = false)
     private Boolean kycVerified = false;
 
-    @Column(name = "admin_approval_flag", nullable = false)
+    @Convert(converter = YNBooleanConverter.class)
+    @Column(name = "admin_approval_flag", nullable = false, columnDefinition = "CHAR(1) DEFAULT 'N'")
     private Boolean adminApproved = false;
 
     @Column(name = "last_login")

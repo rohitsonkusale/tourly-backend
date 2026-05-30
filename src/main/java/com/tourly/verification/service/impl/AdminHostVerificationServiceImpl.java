@@ -10,32 +10,32 @@ import org.springframework.transaction.annotation.Transactional;
 import com.tourly.auth.entity.AccountStatus;
 import com.tourly.auth.entity.User;
 import com.tourly.auth.repository.UserRepository;
+import com.tourly.common.entity.HostVerification;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
+import com.tourly.trip.enums.ApprovalStatus;
 import com.tourly.verification.dto.request.AdminVerificationActionRequest;
-import com.tourly.verification.dto.response.PlannerVerificationResponse;
-import com.tourly.verification.entity.PlannerVerification;
-import com.tourly.verification.enums.VerificationStatus;
-import com.tourly.verification.repository.PlannerVerificationRepository;
-import com.tourly.verification.service.AdminPlannerVerificationService;
+import com.tourly.verification.dto.response.HostVerificationResponse;
+import com.tourly.verification.repository.HostVerificationRepository;
+import com.tourly.verification.service.AdminHostVerificationService;
 
 @Service
 @Transactional
-public class AdminPlannerVerificationServiceImpl implements AdminPlannerVerificationService {
+public class AdminHostVerificationServiceImpl implements AdminHostVerificationService {
 
-    private final PlannerVerificationRepository plannerVerificationRepository;
+    private final HostVerificationRepository hostVerificationRepository;
     private final UserRepository userRepository;
 
-    public AdminPlannerVerificationServiceImpl(PlannerVerificationRepository plannerVerificationRepository,
-                                               UserRepository userRepository) {
-        this.plannerVerificationRepository = plannerVerificationRepository;
+    public AdminHostVerificationServiceImpl(HostVerificationRepository hostVerificationRepository,
+                                            UserRepository userRepository) {
+        this.hostVerificationRepository = hostVerificationRepository;
         this.userRepository = userRepository;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<PlannerVerificationResponse> getPendingVerifications() {
-        return plannerVerificationRepository.findByVerificationStatusOrderBySubmittedAtAsc(VerificationStatus.PENDING)
+    public List<HostVerificationResponse> getPendingVerifications() {
+        return hostVerificationRepository.findByVerificationStatusOrderBySubmittedAtAsc(ApprovalStatus.PENDING)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -43,8 +43,8 @@ public class AdminPlannerVerificationServiceImpl implements AdminPlannerVerifica
 
     @Override
     @Transactional(readOnly = true)
-    public List<PlannerVerificationResponse> getVerificationsByStatus(VerificationStatus status) {
-        return plannerVerificationRepository.findByVerificationStatusOrderBySubmittedAtAsc(status)
+    public List<HostVerificationResponse> getVerificationsByStatus(ApprovalStatus status) {
+        return hostVerificationRepository.findByVerificationStatusOrderBySubmittedAtAsc(status)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -52,45 +52,43 @@ public class AdminPlannerVerificationServiceImpl implements AdminPlannerVerifica
 
     @Override
     @Transactional(readOnly = true)
-    public PlannerVerificationResponse getVerificationById(Long verificationId) {
-        PlannerVerification verification = getVerificationOrThrow(verificationId);
+    public HostVerificationResponse getVerificationById(Long verificationId) {
+        HostVerification verification = getVerificationOrThrow(verificationId);
         return mapToResponse(verification);
     }
 
     @Override
-    public PlannerVerificationResponse approveVerification(Long verificationId) {
-        PlannerVerification verification = getVerificationOrThrow(verificationId);
+    public HostVerificationResponse approveVerification(Long verificationId) {
+        HostVerification verification = getVerificationOrThrow(verificationId);
 
-        // STRICT RULE: only PENDING can be approved
-        if (verification.getVerificationStatus() != VerificationStatus.PENDING) {
+        if (verification.getVerificationStatus() != ApprovalStatus.PENDING) {
             throw new BadRequestException("Only pending verification requests can be approved");
         }
 
         User adminUser = getCurrentAdmin();
         User applicant = verification.getUser();
 
-        verification.setVerificationStatus(VerificationStatus.APPROVED);
+        verification.setVerificationStatus(ApprovalStatus.APPROVED);
         verification.setRejectionReason(null);
         verification.setReviewedAt(LocalDateTime.now());
         verification.setReviewedBy(adminUser);
 
-        // IMPORTANT: verification approval should enable KYC access
+        // Update applicant details
         applicant.setKycVerified(true);
         applicant.setAdminApproved(true);
         applicant.setAccountStatus(AccountStatus.ACTIVE);
 
         userRepository.save(applicant);
-        PlannerVerification saved = plannerVerificationRepository.save(verification);
+        HostVerification saved = hostVerificationRepository.save(verification);
 
         return mapToResponse(saved);
     }
 
     @Override
-    public PlannerVerificationResponse rejectVerification(Long verificationId, AdminVerificationActionRequest request) {
-        PlannerVerification verification = getVerificationOrThrow(verificationId);
+    public HostVerificationResponse rejectVerification(Long verificationId, AdminVerificationActionRequest request) {
+        HostVerification verification = getVerificationOrThrow(verificationId);
 
-        // STRICT RULE: only PENDING can be rejected
-        if (verification.getVerificationStatus() != VerificationStatus.PENDING) {
+        if (verification.getVerificationStatus() != ApprovalStatus.PENDING) {
             throw new BadRequestException("Only pending verification requests can be rejected");
         }
 
@@ -101,28 +99,26 @@ public class AdminPlannerVerificationServiceImpl implements AdminPlannerVerifica
         User adminUser = getCurrentAdmin();
         User applicant = verification.getUser();
 
-        verification.setVerificationStatus(VerificationStatus.REJECTED);
+        verification.setVerificationStatus(ApprovalStatus.REJECTED);
         verification.setRejectionReason(request.getReason().trim());
         verification.setReviewedAt(LocalDateTime.now());
         verification.setReviewedBy(adminUser);
 
-        // IMPORTANT: rejected user should not remain KYC verified
         applicant.setKycVerified(false);
         applicant.setAdminApproved(false);
         applicant.setAccountStatus(AccountStatus.PENDING_VERIFICATION);
 
         userRepository.save(applicant);
-        PlannerVerification saved = plannerVerificationRepository.save(verification);
+        HostVerification saved = hostVerificationRepository.save(verification);
 
         return mapToResponse(saved);
     }
 
     @Override
-    public PlannerVerificationResponse suspendVerification(Long verificationId, AdminVerificationActionRequest request) {
-        PlannerVerification verification = getVerificationOrThrow(verificationId);
+    public HostVerificationResponse suspendVerification(Long verificationId, AdminVerificationActionRequest request) {
+        HostVerification verification = getVerificationOrThrow(verificationId);
 
-        // STRICT RULE: only APPROVED can be suspended
-        if (verification.getVerificationStatus() != VerificationStatus.APPROVED) {
+        if (verification.getVerificationStatus() != ApprovalStatus.APPROVED) {
             throw new BadRequestException("Only approved verification requests can be suspended");
         }
 
@@ -133,24 +129,24 @@ public class AdminPlannerVerificationServiceImpl implements AdminPlannerVerifica
         User adminUser = getCurrentAdmin();
         User applicant = verification.getUser();
 
-        verification.setVerificationStatus(VerificationStatus.SUSPENDED);
+        // ApprovalStatus doesn't have SUSPENDED, so we use REJECTED to signify revoked status
+        verification.setVerificationStatus(ApprovalStatus.REJECTED);
         verification.setRejectionReason(request.getReason().trim());
         verification.setReviewedAt(LocalDateTime.now());
         verification.setReviewedBy(adminUser);
 
-        // IMPORTANT: suspended user should lose KYC access
         applicant.setKycVerified(false);
         applicant.setAdminApproved(false);
         applicant.setAccountStatus(AccountStatus.SUSPENDED);
 
         userRepository.save(applicant);
-        PlannerVerification saved = plannerVerificationRepository.save(verification);
+        HostVerification saved = hostVerificationRepository.save(verification);
 
         return mapToResponse(saved);
     }
 
-    private PlannerVerification getVerificationOrThrow(Long verificationId) {
-        return plannerVerificationRepository.findById(verificationId)
+    private HostVerification getVerificationOrThrow(Long verificationId) {
+        return hostVerificationRepository.findById(verificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Verification request not found with id: " + verificationId));
     }
 
@@ -168,8 +164,8 @@ public class AdminPlannerVerificationServiceImpl implements AdminPlannerVerifica
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated admin user not found"));
     }
 
-    private PlannerVerificationResponse mapToResponse(PlannerVerification verification) {
-        PlannerVerificationResponse response = new PlannerVerificationResponse();
+    private HostVerificationResponse mapToResponse(HostVerification verification) {
+        HostVerificationResponse response = new HostVerificationResponse();
 
         response.setId(verification.getId());
         response.setUserId(verification.getUser().getId());

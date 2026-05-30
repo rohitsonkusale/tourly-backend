@@ -11,8 +11,12 @@ import com.tourly.auth.dto.response.AuthResponse;
 import com.tourly.auth.dto.response.UserResponse;
 import com.tourly.auth.service.AuthService;
 import com.tourly.common.dto.ApiResponse;
+import com.tourly.auth.security.CurrentUser;
+import com.tourly.auth.security.UserPrincipal;
+import com.tourly.common.exception.UnauthorizedActionException;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
@@ -65,5 +69,19 @@ public class AuthController {
         AuthResponse response = authService.googleAuth(request);
 
         return ResponseEntity.ok(ApiResponse.success("Google authentication successful", response));
+    }
+
+    @GetMapping("/me")
+    @Operation(
+            summary = "Get current authenticated user",
+            description = "Fetches the current authenticated user details using JWT token",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<ApiResponse<UserResponse>> getMe(@CurrentUser UserPrincipal currentUser) {
+        if (currentUser == null) {
+            throw new UnauthorizedActionException("User is not authenticated");
+        }
+        UserResponse response = authService.getCurrentUser(currentUser.getId());
+        return ResponseEntity.ok(ApiResponse.success("User profile fetched successfully", response));
     }
 }

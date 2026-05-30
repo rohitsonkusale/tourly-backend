@@ -2,6 +2,8 @@ package com.tourly.admin.service.impl;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,6 +18,7 @@ import com.tourly.auth.entity.AccountStatus;
 import com.tourly.auth.entity.RoleName;
 import com.tourly.auth.entity.User;
 import com.tourly.auth.repository.UserRepository;
+import com.tourly.common.exception.ResourceNotFoundException;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -169,6 +172,37 @@ public class AdminUserServiceImpl implements AdminUserService {
         return mapToResponse(updatedUser);
     }
 
+    @Override
+    public List<AdminUserResponse> getPendingHostApprovals() {
+        // HOST = role_id 3
+        return userRepository
+                .findPendingApprovalsByRoleId(3)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<AdminUserResponse> getPendingPlannerApprovals() {
+        // PLANNER = role_id 2
+        return userRepository
+                .findPendingApprovalsByRoleId(2)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public AdminUserResponse approveUser(Long userId) {
+        User user = userRepository.findByIdAndDeletedDateIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+
+        user.setAdminApproved(true);
+        user.setAccountStatus(AccountStatus.ACTIVE);
+        User saved = userRepository.save(user);
+        return mapToResponse(saved);
+    }
+
     // =========================
     // Helper Methods
     // =========================
@@ -198,6 +232,11 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getEmailVerified(),
                 user.getPhoneVerified(),
                 user.getKycVerified(),
+                user.getAdminApproved(),
+                user.getPanNumber(),
+                user.getAadhaarNumber(),
+                user.getInstagramUsername(),
+                user.getWebsiteUrl(),
                 user.getLastLoginDate(),
                 user.getLastLoginTime(),
                 user.getCreatedDate(),

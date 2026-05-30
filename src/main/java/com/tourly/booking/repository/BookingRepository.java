@@ -69,4 +69,81 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
           AND (b.status = 'CONFIRMED' OR b.status = 'COMPLETED')
     """)
     java.math.BigDecimal sumEarningsByHostId(@Param("hostId") Long hostId);
+
+    // =====================================
+    // ADMIN DASHBOARD STATS
+    // =====================================
+
+    @Query("""
+        SELECT COALESCE(SUM(b.totalPrice), 0) FROM Booking b
+        WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+    """)
+    java.math.BigDecimal sumTotalRevenue();
+
+    @Query("""
+        SELECT COALESCE(SUM(b.totalPrice), 0) FROM Booking b
+        WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+          AND YEAR(b.createdAt) = :year
+          AND MONTH(b.createdAt) = :month
+    """)
+    java.math.BigDecimal sumRevenueForMonth(@Param("year") int year, @Param("month") int month);
+
+    long countByStatusIn(java.util.List<BookingStatus> statuses);
+
+    @Query("""
+        SELECT CAST(b.createdAt AS LocalDate), COALESCE(SUM(b.totalPrice), 0)
+        FROM Booking b
+        WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+          AND b.createdAt >= :from
+        GROUP BY CAST(b.createdAt AS LocalDate)
+        ORDER BY CAST(b.createdAt AS LocalDate) ASC
+    """)
+    java.util.List<Object[]> sumDailyRevenue(@Param("from") LocalDateTime from);
+
+    @Query("""
+        SELECT b.trip.destination.state, COALESCE(SUM(b.totalPrice), 0)
+        FROM Booking b
+        WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+          AND b.trip.destination.state IS NOT NULL
+        GROUP BY b.trip.destination.state
+        ORDER BY SUM(b.totalPrice) DESC
+    """)
+    java.util.List<Object[]> sumRevenueByDestinationState();
+
+    @Query("""
+        SELECT b.trip.destination.city, COUNT(b)
+        FROM Booking b
+        WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+          AND b.trip.destination.city IS NOT NULL
+        GROUP BY b.trip.destination.city
+        ORDER BY COUNT(b) DESC
+    """)
+    java.util.List<Object[]> countBookingsByDestination();
+
+    @Query("""
+        SELECT b.trip.planner.fullName, COALESCE(SUM(b.totalPrice), 0)
+        FROM Booking b
+        WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+          AND b.trip.planner IS NOT NULL
+        GROUP BY b.trip.planner.id, b.trip.planner.fullName
+        ORDER BY SUM(b.totalPrice) DESC
+    """)
+    java.util.List<Object[]> sumRevenueByHost();
+
+    @Query("""
+        SELECT COUNT(DISTINCT sub.travelerId) FROM (
+            SELECT b.traveler.id AS travelerId
+            FROM Booking b
+            WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+            GROUP BY b.traveler.id
+            HAVING COUNT(b) > 1
+        ) sub
+    """)
+    long countRepeatTravelers();
+
+    @Query("""
+        SELECT COUNT(DISTINCT b.traveler.id) FROM Booking b
+        WHERE b.status IN ('CONFIRMED', 'COMPLETED')
+    """)
+    long countDistinctTravelers();
 }

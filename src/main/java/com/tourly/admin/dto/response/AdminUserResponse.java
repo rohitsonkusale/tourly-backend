@@ -14,6 +14,11 @@ public class AdminUserResponse {
     private Boolean emailVerified;
     private Boolean phoneVerified;
     private Boolean kycVerified;
+    private Boolean adminApproved;
+    private String panNumber;
+    private String aadhaarNumber;
+    private String instagramUsername;
+    private String websiteUrl;
     private LocalDate lastLoginDate;
     private LocalTime lastLoginTime;
     private LocalDate createdDate;
@@ -26,7 +31,10 @@ public class AdminUserResponse {
 
     public AdminUserResponse(Long id, String fullName, String email, String phone, String roleName,
                              String accountStatus, Boolean emailVerified, Boolean phoneVerified,
-                             Boolean kycVerified, LocalDate lastLoginDate, LocalTime lastLoginTime,
+                             Boolean kycVerified, Boolean adminApproved,
+                             String panNumber, String aadhaarNumber,
+                             String instagramUsername, String websiteUrl,
+                             LocalDate lastLoginDate, LocalTime lastLoginTime,
                              LocalDate createdDate, LocalTime createdTime,
                              LocalDate updatedDate, LocalTime updatedTime) {
         this.id = id;
@@ -38,6 +46,11 @@ public class AdminUserResponse {
         this.emailVerified = emailVerified;
         this.phoneVerified = phoneVerified;
         this.kycVerified = kycVerified;
+        this.adminApproved = adminApproved;
+        this.panNumber = panNumber;
+        this.aadhaarNumber = aadhaarNumber;
+        this.instagramUsername = instagramUsername;
+        this.websiteUrl = websiteUrl;
         this.lastLoginDate = lastLoginDate;
         this.lastLoginTime = lastLoginTime;
         this.createdDate = createdDate;
@@ -72,6 +85,21 @@ public class AdminUserResponse {
 
     public Boolean getKycVerified() { return kycVerified; }
     public void setKycVerified(Boolean kycVerified) { this.kycVerified = kycVerified; }
+
+    public Boolean getAdminApproved() { return adminApproved; }
+    public void setAdminApproved(Boolean adminApproved) { this.adminApproved = adminApproved; }
+
+    public String getPanNumber() { return panNumber; }
+    public void setPanNumber(String panNumber) { this.panNumber = panNumber; }
+
+    public String getAadhaarNumber() { return aadhaarNumber; }
+    public void setAadhaarNumber(String aadhaarNumber) { this.aadhaarNumber = aadhaarNumber; }
+
+    public String getInstagramUsername() { return instagramUsername; }
+    public void setInstagramUsername(String instagramUsername) { this.instagramUsername = instagramUsername; }
+
+    public String getWebsiteUrl() { return websiteUrl; }
+    public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
 
     public LocalDate getLastLoginDate() { return lastLoginDate; }
     public void setLastLoginDate(LocalDate lastLoginDate) { this.lastLoginDate = lastLoginDate; }

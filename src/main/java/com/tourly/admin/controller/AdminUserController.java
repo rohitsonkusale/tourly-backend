@@ -17,6 +17,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/admin/users")
 @Validated
@@ -116,5 +118,28 @@ public class AdminUserController {
 
         AdminUserResponse response = adminUserService.restoreUser(id);
         return ResponseEntity.ok(ApiResponse.success("User restored successfully", response));
+    }
+
+    @GetMapping("/pending-approvals/hosts")
+    @Operation(summary = "Get pending host approvals", description = "Fetch all HOST users with adminApproved = N")
+    public ResponseEntity<ApiResponse<List<AdminUserResponse>>> getPendingHostApprovals() {
+        List<AdminUserResponse> response = adminUserService.getPendingHostApprovals();
+        return ResponseEntity.ok(ApiResponse.success("Pending host approvals fetched successfully", response));
+    }
+
+    @GetMapping("/pending-approvals/planners")
+    @Operation(summary = "Get pending planner approvals", description = "Fetch all PLANNER users with adminApproved = N")
+    public ResponseEntity<ApiResponse<List<AdminUserResponse>>> getPendingPlannerApprovals() {
+        List<AdminUserResponse> response = adminUserService.getPendingPlannerApprovals();
+        return ResponseEntity.ok(ApiResponse.success("Pending planner approvals fetched successfully", response));
+    }
+
+    @PutMapping("/{id}/approve")
+    @Operation(summary = "Approve user", description = "Set adminApproved = Y and accountStatus = ACTIVE for a HOST or PLANNER")
+    public ResponseEntity<ApiResponse<AdminUserResponse>> approveUser(
+            @PathVariable @Positive(message = "User ID must be greater than 0") Long id) {
+
+        AdminUserResponse response = adminUserService.approveUser(id);
+        return ResponseEntity.ok(ApiResponse.success("User approved successfully", response));
     }
 }

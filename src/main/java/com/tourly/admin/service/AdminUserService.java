@@ -1,5 +1,7 @@
 package com.tourly.admin.service;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 
 import com.tourly.admin.dto.response.AdminUserResponse;
@@ -24,4 +26,12 @@ public interface AdminUserService {
     AdminUserResponse softDeleteUser(Long userId);
 
     AdminUserResponse restoreUser(Long userId);
+
+    // Pending approval queue — HOST and PLANNER users with adminApproved = N
+    List<AdminUserResponse> getPendingHostApprovals();
+
+    List<AdminUserResponse> getPendingPlannerApprovals();
+
+    // Approve a user — sets adminApproved = Y and accountStatus = ACTIVE
+    AdminUserResponse approveUser(Long userId);
 }

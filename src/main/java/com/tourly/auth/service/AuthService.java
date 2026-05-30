@@ -13,4 +13,6 @@ public interface AuthService {
     AuthResponse loginUser(LoginRequest request);
 
     AuthResponse googleAuth(GoogleAuthRequest request);
+
+    UserResponse getCurrentUser(Long userId);
 }

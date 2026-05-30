@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.tourly.booking.entity.Booking;
 import com.tourly.payment.entity.Payment;
+import com.tourly.payment.enums.PaymentStatus;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
@@ -18,4 +19,11 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByRazorpayPaymentId(String razorpayPaymentId);
 
     boolean existsByRazorpayRefundId(String razorpayRefundId);
+
+    // =====================================
+    // ADMIN DASHBOARD STATS
+    // =====================================
+    long countByStatus(PaymentStatus status);
+
+    long countByStatusIn(java.util.List<PaymentStatus> statuses);
 }
