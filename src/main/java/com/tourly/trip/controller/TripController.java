@@ -15,6 +15,7 @@ import com.tourly.trip.dto.request.CreateTripRequest;
 import com.tourly.trip.dto.request.UpdateTripRequest;
 import com.tourly.trip.dto.response.TripResponse;
 import com.tourly.trip.dto.response.HostStatsResponse;
+import com.tourly.trip.dto.response.HostAnalyticsResponse;
 import com.tourly.trip.enums.TripStatus;
 import com.tourly.trip.service.TripService;
 
@@ -253,13 +254,18 @@ public class TripController {
     // ========================================
     @GetMapping("/my/stats")
     @PreAuthorize("hasAnyRole('HOST','ADMIN')")
-    @Operation(
-            summary = "Get my stats",
-            description = "Calculates and returns the host's dashboard stats",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
+    @Operation(summary = "Get my stats", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<HostStatsResponse>> getMyStats() {
         HostStatsResponse response = tripService.getHostStats();
         return ResponseEntity.ok(ApiResponse.success("Host stats calculated successfully", response));
+    }
+
+    @GetMapping("/my/analytics")
+    @PreAuthorize("hasAnyRole('HOST','ADMIN')")
+    @Operation(summary = "Get my analytics", description = "Returns detailed analytics for the logged-in host",
+               security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<HostAnalyticsResponse>> getMyAnalytics() {
+        HostAnalyticsResponse response = tripService.getHostAnalytics();
+        return ResponseEntity.ok(ApiResponse.success("Host analytics fetched successfully", response));
     }
 }

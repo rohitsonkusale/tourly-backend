@@ -17,31 +17,39 @@ public class TripMapper {
         response.setTotalSeats(trip.getTotalSeats());
         response.setBookedSeats(trip.getBookedSeats());
 
+        // Destination — city + state
         if (trip.getDestination() != null) {
             response.setDestination(trip.getDestination().getCity());
+            response.setDestinationState(trip.getDestination().getState());
         }
 
+        // People
         if (trip.getPlanner() != null) {
             response.setPlannerName(trip.getPlanner().getFullName());
         }
+        if (trip.getHost() != null) {
+            response.setHostName(trip.getHost().getFullName());
+        }
 
-        return response;
-    }
-
-    // ===============================
-    // ADMIN VIEW (extra fields)
-    // ===============================
-    public static TripResponse mapToAdminResponse(Trip trip) {
-        TripResponse response = mapToResponse(trip);
-
-        // Add admin-specific fields
+        // Trip metadata — needed by host dashboard and admin
+        response.setCategory(trip.getCategory());
+        response.setApprovalStatus(trip.getApprovalStatus());
+        response.setRejectionReason(trip.getRejectionReason());
+        response.setStatus(trip.getStatus());
         response.setActive(trip.getActive());
         response.setDeleted(trip.getDeleted());
-        response.setStatus(trip.getStatus());
         response.setCreatedAt(trip.getCreatedAt());
         response.setUpdatedAt(trip.getUpdatedAt());
         response.setDeletedAt(trip.getDeletedAt());
 
         return response;
+    }
+
+    // ===============================
+    // ADMIN VIEW — kept for backward
+    // compatibility, delegates to base
+    // ===============================
+    public static TripResponse mapToAdminResponse(Trip trip) {
+        return mapToResponse(trip);
     }
 }

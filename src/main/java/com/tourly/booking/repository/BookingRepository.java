@@ -146,4 +146,30 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         WHERE b.status IN ('CONFIRMED', 'COMPLETED')
     """)
     long countDistinctTravelers();
+
+    // =====================================
+    // HOST ANALYTICS
+    // =====================================
+    @Query("""
+        SELECT b.trip.id, b.trip.title,
+               b.trip.destination.city,
+               COUNT(b),
+               COALESCE(SUM(b.totalPrice), 0)
+        FROM Booking b
+        WHERE b.trip.planner.id = :hostId
+          AND b.status IN ('CONFIRMED', 'COMPLETED')
+        GROUP BY b.trip.id, b.trip.title, b.trip.destination.city
+        ORDER BY COUNT(b) DESC
+    """)
+    java.util.List<Object[]> findTopTripsByHostId(@Param("hostId") Long hostId);
+
+    // =====================================
+    // HOST PAYMENTS — all bookings on host's trips
+    // =====================================
+    @Query("""
+        SELECT b FROM Booking b
+        WHERE b.trip.planner.id = :hostId
+        ORDER BY b.createdAt DESC
+    """)
+    java.util.List<Booking> findAllBookingsByHostId(@Param("hostId") Long hostId);
 }

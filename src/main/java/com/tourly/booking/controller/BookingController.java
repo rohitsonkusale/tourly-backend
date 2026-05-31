@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import com.tourly.booking.dto.request.CancelBookingRequest;
 import com.tourly.booking.dto.request.CreateBookingRequest;
 import com.tourly.booking.dto.response.BookingResponse;
+import com.tourly.booking.dto.response.HostBookingResponse;
 import com.tourly.booking.service.BookingService;
 import com.tourly.common.dto.ApiResponse;
 
@@ -36,69 +37,51 @@ public class BookingController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('TRAVELER','ADMIN')")
-    @Operation(
-            summary = "Book a trip",
-            description = "Allows a traveler or admin to create a booking for a trip",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
+    @Operation(summary = "Book a trip", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<BookingResponse>> bookTrip(
             @Valid @RequestBody CreateBookingRequest request) {
-
         BookingResponse response = bookingService.bookTrip(request);
-
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Trip booked successfully", response));
     }
 
     @GetMapping("/my")
     @PreAuthorize("hasAnyRole('TRAVELER','ADMIN')")
-    @Operation(
-            summary = "Get my bookings",
-            description = "Fetch all bookings for the currently logged-in traveler or admin",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
+    @Operation(summary = "Get my bookings", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<BookingResponse>>> getMyBookings() {
-
         List<BookingResponse> response = bookingService.getMyBookings();
-
         return ResponseEntity.ok(ApiResponse.success("Bookings fetched successfully", response));
     }
 
     @GetMapping("/trip/{tripId}")
     @PreAuthorize("hasAnyRole('PLANNER','HOST','ADMIN')")
-    @Operation(
-            summary = "Get bookings for a trip",
-            description = "Fetch all bookings for a specific trip owned by planner, host, or accessible by admin",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
+    @Operation(summary = "Get bookings for a trip", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<BookingResponse>>> getTripBookings(
-            @PathVariable
-            @Parameter(description = "Unique ID of the trip")
-            @Positive(message = "Trip ID must be greater than 0")
-            Long tripId) {
-
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId) {
         List<BookingResponse> response = bookingService.getTripBookings(tripId);
-
         return ResponseEntity.ok(ApiResponse.success("Trip bookings fetched successfully", response));
     }
 
     @PutMapping("/{bookingId}/cancel")
     @PreAuthorize("hasAnyRole('TRAVELER','ADMIN')")
-    @Operation(
-            summary = "Cancel booking",
-            description = "Allows a traveler or admin to cancel an existing booking",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
+    @Operation(summary = "Cancel booking", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<Void>> cancelBooking(
-            @PathVariable
-            @Parameter(description = "Unique ID of the booking")
-            @Positive(message = "Booking ID must be greater than 0")
-            Long bookingId,
-
+            @PathVariable @Positive(message = "Booking ID must be greater than 0") Long bookingId,
             @Valid @RequestBody CancelBookingRequest request) {
-
         bookingService.cancelBooking(bookingId, request);
-
         return ResponseEntity.ok(ApiResponse.success("Booking cancelled successfully"));
+    }
+
+    // =========================================
+    // HOST — All bookings across host's trips
+    // =========================================
+    @GetMapping("/my-trips")
+    @PreAuthorize("hasAnyRole('HOST','ADMIN')")
+    @Operation(summary = "Get all bookings for host's trips",
+               description = "Returns all bookings across all trips created by the logged-in host",
+               security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<HostBookingResponse>>> getMyTripBookings() {
+        List<HostBookingResponse> response = bookingService.getMyTripBookings();
+        return ResponseEntity.ok(ApiResponse.success("Host trip bookings fetched successfully", response));
     }
 }

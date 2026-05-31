@@ -5,6 +5,7 @@ import java.util.List;
 import com.tourly.booking.dto.request.CancelBookingRequest;
 import com.tourly.booking.dto.request.CreateBookingRequest;
 import com.tourly.booking.dto.response.BookingResponse;
+import com.tourly.booking.dto.response.HostBookingResponse;
 
 public interface BookingService {
 
@@ -16,4 +17,5 @@ public interface BookingService {
 
     void cancelBooking(Long bookingId, CancelBookingRequest request);
 
+    List<HostBookingResponse> getMyTripBookings();
 }

@@ -116,6 +116,11 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
             Pageable pageable
     );
 
+    // Trips submitted by hosts awaiting admin approval
+    java.util.List<Trip> findByApprovalStatusAndDeletedFalse(
+            com.tourly.trip.enums.ApprovalStatus approvalStatus
+    );
+
     // ========================================
     // LOCK TRIP FOR BOOKING (RACE CONDITION SAFE)
     // DO NOT TOUCH - critical for booking consistency

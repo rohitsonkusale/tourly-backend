@@ -29,7 +29,14 @@ import com.tourly.trip.service.TripService;
 import com.tourly.verification.entity.PlannerVerification;
 import com.tourly.verification.enums.VerificationStatus;
 import com.tourly.verification.repository.PlannerVerificationRepository;
+import com.tourly.verification.repository.HostVerificationRepository;
+import com.tourly.common.entity.HostVerification;
+import com.tourly.trip.enums.ApprovalStatus;
+import com.tourly.trip.dto.response.HostAnalyticsResponse;
+import com.tourly.trip.dto.response.HostAnalyticsResponse.TripBookingSummary;
 import com.tourly.trip.dto.response.HostStatsResponse;
+import java.util.List;
+import java.util.stream.Collectors;
 import com.tourly.booking.repository.BookingRepository;
 
 @Service
@@ -40,6 +47,7 @@ public class TripServiceImpl implements TripService {
     private final DestinationRepository destinationRepository;
     private final UserRepository userRepository;
     private final PlannerVerificationRepository plannerVerificationRepository;
+    private final HostVerificationRepository hostVerificationRepository;
     private final BookingRepository bookingRepository;
 
     public TripServiceImpl(
@@ -47,11 +55,13 @@ public class TripServiceImpl implements TripService {
             DestinationRepository destinationRepository,
             UserRepository userRepository,
             PlannerVerificationRepository plannerVerificationRepository,
+            HostVerificationRepository hostVerificationRepository,
             BookingRepository bookingRepository) {
         this.tripRepository = tripRepository;
         this.destinationRepository = destinationRepository;
         this.userRepository = userRepository;
         this.plannerVerificationRepository = plannerVerificationRepository;
+        this.hostVerificationRepository = hostVerificationRepository;
         this.bookingRepository = bookingRepository;
     }
 
@@ -425,12 +435,24 @@ public class TripServiceImpl implements TripService {
             throw new BadRequestException("Your KYC is not verified. You cannot create trips.");
         }
 
-        PlannerVerification verification = plannerVerificationRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new BadRequestException(
-                        "Verification profile not found. Please complete verification first."));
+        if (roleName == RoleName.HOST) {
+            // HOSTs are verified via HostVerification (ApprovalStatus enum)
+            HostVerification hostVerification = hostVerificationRepository.findByUserId(user.getId())
+                    .orElseThrow(() -> new BadRequestException(
+                            "Host verification profile not found. Please complete verification first."));
 
-        if (verification.getVerificationStatus() != VerificationStatus.APPROVED) {
-            throw new BadRequestException("Your verification is not approved yet. You cannot create trips.");
+            if (hostVerification.getVerificationStatus() != ApprovalStatus.APPROVED) {
+                throw new BadRequestException("Your host verification is not approved yet. You cannot create trips.");
+            }
+        } else {
+            // PLANNERs are verified via PlannerVerification (VerificationStatus enum)
+            PlannerVerification plannerVerification = plannerVerificationRepository.findByUserId(user.getId())
+                    .orElseThrow(() -> new BadRequestException(
+                            "Planner verification profile not found. Please complete verification first."));
+
+            if (plannerVerification.getVerificationStatus() != VerificationStatus.APPROVED) {
+                throw new BadRequestException("Your planner verification is not approved yet. You cannot create trips.");
+            }
         }
     }
 
@@ -495,5 +517,64 @@ public class TripServiceImpl implements TripService {
         );
 
         return new HostStatsResponse(upcomingTrips, totalBookings, earnings, pendingTrips);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public HostAnalyticsResponse getHostAnalytics() {
+        User currentUser = getCurrentUser();
+        Long hostId = currentUser.getId();
+
+        // All trips by this host
+        List<Trip> allTrips = tripRepository.findByPlannerId(hostId,
+                org.springframework.data.domain.Pageable.unpaged()).getContent();
+
+        long totalTrips = allTrips.size();
+        long publishedTrips = allTrips.stream()
+                .filter(t -> TripStatus.PUBLISHED.equals(t.getStatus())).count();
+        long draftTrips = allTrips.stream()
+                .filter(t -> TripStatus.DRAFT.equals(t.getStatus())).count();
+
+        long totalSeatsOffered = allTrips.stream()
+                .mapToLong(t -> t.getTotalSeats() != null ? t.getTotalSeats() : 0).sum();
+        long totalSeatsBooked = allTrips.stream()
+                .mapToLong(t -> t.getBookedSeats() != null ? t.getBookedSeats() : 0).sum();
+
+        double occupancyRate = totalSeatsOffered > 0
+                ? Math.round((totalSeatsBooked * 100.0 / totalSeatsOffered) * 10.0) / 10.0
+                : 0.0;
+
+        long totalBookings = bookingRepository.countBookingsByHostId(hostId);
+        java.math.BigDecimal totalRevenue = bookingRepository.sumEarningsByHostId(hostId);
+
+        java.math.BigDecimal avgRevenue = (totalTrips > 0 && totalRevenue != null)
+                ? totalRevenue.divide(java.math.BigDecimal.valueOf(totalTrips), 2,
+                        java.math.RoundingMode.HALF_UP)
+                : java.math.BigDecimal.ZERO;
+
+        // Top trips
+        List<Object[]> topRaw = bookingRepository.findTopTripsByHostId(hostId);
+        List<TripBookingSummary> topTrips = topRaw.stream()
+                .limit(5)
+                .map(row -> new TripBookingSummary(
+                        ((Number) row[0]).longValue(),
+                        (String) row[1],
+                        (String) row[2],
+                        ((Number) row[3]).longValue(),
+                        (java.math.BigDecimal) row[4]))
+                .collect(Collectors.toList());
+
+        HostAnalyticsResponse response = new HostAnalyticsResponse();
+        response.setTotalTrips(totalTrips);
+        response.setPublishedTrips(publishedTrips);
+        response.setDraftTrips(draftTrips);
+        response.setTotalBookings(totalBookings);
+        response.setTotalRevenue(totalRevenue != null ? totalRevenue : java.math.BigDecimal.ZERO);
+        response.setAvgRevenuePerTrip(avgRevenue);
+        response.setTotalSeatsOffered(totalSeatsOffered);
+        response.setTotalSeatsBooked(totalSeatsBooked);
+        response.setOccupancyRate(occupancyRate);
+        response.setTopTrips(topTrips);
+        return response;
     }
 }

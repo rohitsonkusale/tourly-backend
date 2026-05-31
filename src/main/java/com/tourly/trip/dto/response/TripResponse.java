@@ -3,6 +3,8 @@ package com.tourly.trip.dto.response;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.tourly.trip.enums.ApprovalStatus;
+import com.tourly.trip.enums.TripCategory;
 import com.tourly.trip.enums.TripStatus;
 
 public class TripResponse {
@@ -10,17 +12,27 @@ public class TripResponse {
     private Long id;
     private String title;
     private String description;
-    private String destination;
+
+    // Destination fields
+    private String destination;       // city name
+    private String destinationState;  // state name
+
     private LocalDate startDate;
     private LocalDate endDate;
     private BigDecimal basePrice;
     private Integer totalSeats;
     private Integer bookedSeats;
-    private String plannerName;
 
-    // =========================
-    // Admin-specific fields
-    // =========================
+    // People
+    private String plannerName;
+    private String hostName;
+
+    // Trip metadata
+    private TripCategory category;
+    private ApprovalStatus approvalStatus;
+    private String rejectionReason;
+
+    // Admin / owner fields
     private Boolean active;
     private Boolean deleted;
     private TripStatus status;
@@ -44,6 +56,9 @@ public class TripResponse {
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
 
+    public String getDestinationState() { return destinationState; }
+    public void setDestinationState(String destinationState) { this.destinationState = destinationState; }
+
     public LocalDate getStartDate() { return startDate; }
     public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
 
@@ -61,6 +76,18 @@ public class TripResponse {
 
     public String getPlannerName() { return plannerName; }
     public void setPlannerName(String plannerName) { this.plannerName = plannerName; }
+
+    public String getHostName() { return hostName; }
+    public void setHostName(String hostName) { this.hostName = hostName; }
+
+    public TripCategory getCategory() { return category; }
+    public void setCategory(TripCategory category) { this.category = category; }
+
+    public ApprovalStatus getApprovalStatus() { return approvalStatus; }
+    public void setApprovalStatus(ApprovalStatus approvalStatus) { this.approvalStatus = approvalStatus; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 
     public Boolean getActive() { return active; }
     public void setActive(Boolean active) { this.active = active; }
@@ -80,18 +107,6 @@ public class TripResponse {
     public LocalDateTime getDeletedAt() { return deletedAt; }
     public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
 
-    /**
-     * @return Boolean return the active
-     */
-    public Boolean isActive() {
-        return active;
-    }
-
-    /**
-     * @return Boolean return the deleted
-     */
-    public Boolean isDeleted() {
-        return deleted;
-    }
-
+    public Boolean isActive() { return active; }
+    public Boolean isDeleted() { return deleted; }
 }

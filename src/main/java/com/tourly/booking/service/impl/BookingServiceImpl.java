@@ -18,6 +18,7 @@ import com.tourly.auth.repository.UserRepository;
 import com.tourly.booking.dto.request.CancelBookingRequest;
 import com.tourly.booking.dto.request.CreateBookingRequest;
 import com.tourly.booking.dto.response.BookingResponse;
+import com.tourly.booking.dto.response.HostBookingResponse;
 import com.tourly.booking.entity.Booking;
 import com.tourly.booking.enums.BookingStatus;
 import com.tourly.booking.enums.PaymentStatus;
@@ -257,5 +258,33 @@ public class BookingServiceImpl implements BookingService {
         bookingRepository.save(booking);
 
         log.info("Booking cancelled: bookingId={}, userId={}", bookingId, currentUser.getId());
+    }
+
+    // =====================================
+    // HOST — All bookings across host's trips
+    // =====================================
+    @Override
+    public List<HostBookingResponse> getMyTripBookings() {
+        User currentUser = getCurrentUser();
+        List<Booking> bookings = bookingRepository.findAllBookingsByHostId(currentUser.getId());
+        return bookings.stream().map(this::toHostBookingResponse).collect(Collectors.toList());
+    }
+
+    private HostBookingResponse toHostBookingResponse(Booking b) {
+        HostBookingResponse r = new HostBookingResponse();
+        r.setBookingId(b.getId());
+        r.setBookingRef(b.getBookingRef());
+        r.setTripTitle(b.getTrip() != null ? b.getTrip().getTitle() : null);
+        if (b.getTraveler() != null) {
+            r.setTravelerName(b.getTraveler().getFullName());
+            r.setTravelerEmail(b.getTraveler().getEmail());
+        }
+        r.setSeatsBooked(b.getSeatsBooked());
+        r.setTotalPrice(b.getTotalPrice());
+        r.setBookingStatus(b.getStatus() != null ? b.getStatus().name() : null);
+        r.setPaymentStatus(b.getPaymentStatus() != null ? b.getPaymentStatus().name() : null);
+        r.setCreatedAt(b.getCreatedAt());
+        r.setConfirmedAt(b.getConfirmedAt());
+        return r;
     }
 }

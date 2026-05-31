@@ -11,6 +11,8 @@ import com.tourly.trip.dto.response.TripResponse;
 import com.tourly.trip.dto.response.HostStatsResponse;
 import com.tourly.trip.enums.TripStatus;
 
+import com.tourly.trip.dto.response.HostAnalyticsResponse;
+
 public interface TripService {
 
     TripResponse createTrip(CreateTripRequest request);
@@ -45,4 +47,6 @@ public interface TripService {
     Page<TripResponse> getMyTripsByStatus(TripStatus status, Pageable pageable);
 
     HostStatsResponse getHostStats();
+
+    HostAnalyticsResponse getHostAnalytics();
 }

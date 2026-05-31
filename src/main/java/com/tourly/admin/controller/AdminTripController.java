@@ -1,5 +1,7 @@
 package com.tourly.admin.controller;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -8,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import com.tourly.admin.dto.request.TripModerationRequest;
 import com.tourly.admin.service.AdminTripService;
 import com.tourly.common.dto.ApiResponse;
 import com.tourly.trip.dto.response.TripResponse;
@@ -18,6 +21,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
@@ -207,17 +211,63 @@ public class AdminTripController {
     }
 
     @PutMapping("/{tripId}/dispute")
-    @Operation(
-            summary = "Mark trip as disputed",
-            description = "Mark a trip as disputed for admin moderation workflow"
-    )
+    @Operation(summary = "Mark trip as disputed", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<TripResponse>> markTripAsDisputed(
-            @PathVariable
-            @Parameter(description = "Unique ID of the trip")
-            @Positive(message = "Trip ID must be greater than 0")
-            Long tripId) {
-
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId) {
         TripResponse response = adminTripService.markTripAsDisputed(tripId);
         return ResponseEntity.ok(ApiResponse.success("Trip marked as disputed successfully", response));
+    }
+
+    // =========================================
+    // APPROVAL QUEUE
+    // =========================================
+
+    @GetMapping("/pending-approval")
+    @Operation(
+            summary = "Get trips pending admin approval",
+            description = "Returns all trips submitted by hosts with approvalStatus = PENDING",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<ApiResponse<List<TripResponse>>> getPendingApprovalTrips() {
+        List<TripResponse> response = adminTripService.getPendingApprovalTrips();
+        return ResponseEntity.ok(ApiResponse.success("Pending approval trips fetched successfully", response));
+    }
+
+    @PutMapping("/{tripId}/approve")
+    @Operation(
+            summary = "Approve trip",
+            description = "Approves a trip — sets approvalStatus=APPROVED, status=PUBLISHED, active=true",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<ApiResponse<TripResponse>> approveTrip(
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId) {
+        TripResponse response = adminTripService.approveTrip(tripId);
+        return ResponseEntity.ok(ApiResponse.success("Trip approved successfully", response));
+    }
+
+    @PutMapping("/{tripId}/reject")
+    @Operation(
+            summary = "Reject trip",
+            description = "Rejects a trip with a mandatory admin message. Sets approvalStatus=REJECTED.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<ApiResponse<TripResponse>> rejectTrip(
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId,
+            @Valid @RequestBody TripModerationRequest request) {
+        TripResponse response = adminTripService.rejectTrip(tripId, request.getAdminMessage());
+        return ResponseEntity.ok(ApiResponse.success("Trip rejected successfully", response));
+    }
+
+    @PutMapping("/{tripId}/pending-review")
+    @Operation(
+            summary = "Mark trip as pending review",
+            description = "Requests changes from host with a mandatory message. Sets approvalStatus=PENDING_REVIEW.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<ApiResponse<TripResponse>> markTripPendingReview(
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId,
+            @Valid @RequestBody TripModerationRequest request) {
+        TripResponse response = adminTripService.markTripPendingReview(tripId, request.getAdminMessage());
+        return ResponseEntity.ok(ApiResponse.success("Trip marked as pending review", response));
     }
 }

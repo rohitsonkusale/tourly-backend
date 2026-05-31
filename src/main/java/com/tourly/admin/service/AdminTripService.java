@@ -1,5 +1,7 @@
 package com.tourly.admin.service;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -24,8 +26,19 @@ public interface AdminTripService {
     TripResponse getTripById(Long tripId);
 
     // =========================================
-    // MODERATION
+    // APPROVAL QUEUE
     // =========================================
+    List<TripResponse> getPendingApprovalTrips();
+
+    // =========================================
+    // MODERATION ACTIONS
+    // =========================================
+    TripResponse approveTrip(Long tripId);
+
+    TripResponse rejectTrip(Long tripId, String adminMessage);
+
+    TripResponse markTripPendingReview(Long tripId, String adminMessage);
+
     TripResponse deactivateTrip(Long tripId);
 
     TripResponse reactivateTrip(Long tripId);
