@@ -17,6 +17,7 @@ public class HostVerificationResponse {
 
     private String aadhaarDocumentUrl;
     private String panDocumentUrl;
+    private String selfieUrl;
 
     private ApprovalStatus verificationStatus;
     private String rejectionReason;
@@ -109,6 +110,14 @@ public class HostVerificationResponse {
 
     public void setPanDocumentUrl(String panDocumentUrl) {
         this.panDocumentUrl = panDocumentUrl;
+    }
+
+    public String getSelfieUrl() {
+        return selfieUrl;
+    }
+
+    public void setSelfieUrl(String selfieUrl) {
+        this.selfieUrl = selfieUrl;
     }
 
     public ApprovalStatus getVerificationStatus() {

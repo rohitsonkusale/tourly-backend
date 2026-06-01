@@ -59,6 +59,7 @@ public class PlannerVerificationServiceImpl implements PlannerVerificationServic
         userRepository.save(currentUser);
         verification.setAadhaarDocumentUrl(request.getAadhaarDocumentUrl() != null ? request.getAadhaarDocumentUrl().trim() : null);
         verification.setPanDocumentUrl(request.getPanDocumentUrl() != null ? request.getPanDocumentUrl().trim() : null);
+        verification.setSelfieUrl(request.getSelfieUrl() != null ? request.getSelfieUrl().trim() : null);
 
         verification.setVerificationStatus(VerificationStatus.PENDING);
         verification.setRejectionReason(null);
@@ -136,6 +137,7 @@ public class PlannerVerificationServiceImpl implements PlannerVerificationServic
 
         response.setAadhaarDocumentUrl(verification.getAadhaarDocumentUrl());
         response.setPanDocumentUrl(verification.getPanDocumentUrl());
+        response.setSelfieUrl(verification.getSelfieUrl());
 
         response.setVerificationStatus(verification.getVerificationStatus());
         response.setRejectionReason(verification.getRejectionReason());

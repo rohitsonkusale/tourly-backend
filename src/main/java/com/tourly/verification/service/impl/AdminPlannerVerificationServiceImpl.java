@@ -183,6 +183,7 @@ public class AdminPlannerVerificationServiceImpl implements AdminPlannerVerifica
 
         response.setAadhaarDocumentUrl(verification.getAadhaarDocumentUrl());
         response.setPanDocumentUrl(verification.getPanDocumentUrl());
+        response.setSelfieUrl(verification.getSelfieUrl());
 
         response.setVerificationStatus(verification.getVerificationStatus());
         response.setRejectionReason(verification.getRejectionReason());

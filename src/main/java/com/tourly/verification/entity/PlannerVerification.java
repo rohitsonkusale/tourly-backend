@@ -52,6 +52,9 @@ public class PlannerVerification {
     @Column(name = "pan_document_url", length = 500)
     private String panDocumentUrl;
 
+    @Column(name = "selfie_url", length = 500)
+    private String selfieUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status", nullable = false, length = 20)
     private VerificationStatus verificationStatus;
@@ -158,6 +161,14 @@ public class PlannerVerification {
 
     public void setPanDocumentUrl(String panDocumentUrl) {
         this.panDocumentUrl = panDocumentUrl;
+    }
+
+    public String getSelfieUrl() {
+        return selfieUrl;
+    }
+
+    public void setSelfieUrl(String selfieUrl) {
+        this.selfieUrl = selfieUrl;
     }
 
     public VerificationStatus getVerificationStatus() {

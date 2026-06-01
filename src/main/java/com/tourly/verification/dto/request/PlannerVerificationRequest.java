@@ -36,6 +36,9 @@ public class PlannerVerificationRequest {
     @Size(max = 500, message = "PAN document URL cannot exceed 500 characters")
     private String panDocumentUrl;
 
+    @Size(max = 500, message = "Selfie URL cannot exceed 500 characters")
+    private String selfieUrl;
+
     public PlannerVerificationRequest() {
     }
 
@@ -101,5 +104,13 @@ public class PlannerVerificationRequest {
 
     public void setPanDocumentUrl(String panDocumentUrl) {
         this.panDocumentUrl = panDocumentUrl;
+    }
+
+    public String getSelfieUrl() {
+        return selfieUrl;
+    }
+
+    public void setSelfieUrl(String selfieUrl) {
+        this.selfieUrl = selfieUrl;
     }
 }

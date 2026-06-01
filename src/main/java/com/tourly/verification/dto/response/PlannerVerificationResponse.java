@@ -18,6 +18,7 @@ public class PlannerVerificationResponse {
 
     private String aadhaarDocumentUrl;
     private String panDocumentUrl;
+    private String selfieUrl;
 
     private VerificationStatus verificationStatus;
     private String rejectionReason;
@@ -110,6 +111,14 @@ public class PlannerVerificationResponse {
 
     public void setPanDocumentUrl(String panDocumentUrl) {
         this.panDocumentUrl = panDocumentUrl;
+    }
+
+    public String getSelfieUrl() {
+        return selfieUrl;
+    }
+
+    public void setSelfieUrl(String selfieUrl) {
+        this.selfieUrl = selfieUrl;
     }
 
     public VerificationStatus getVerificationStatus() {

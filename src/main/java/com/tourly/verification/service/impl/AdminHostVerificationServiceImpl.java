@@ -37,6 +37,10 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     public List<HostVerificationResponse> getPendingVerifications() {
         return hostVerificationRepository.findByVerificationStatusOrderBySubmittedAtAsc(ApprovalStatus.PENDING)
                 .stream()
+                // Only show records that have at least one document uploaded (real submissions)
+                .filter(v -> v.getAadhaarDocumentUrl() != null
+                        || v.getPanDocumentUrl() != null
+                        || v.getSelfieUrl() != null)
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -179,6 +183,7 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
 
         response.setAadhaarDocumentUrl(verification.getAadhaarDocumentUrl());
         response.setPanDocumentUrl(verification.getPanDocumentUrl());
+        response.setSelfieUrl(verification.getSelfieUrl());
 
         response.setVerificationStatus(verification.getVerificationStatus());
         response.setRejectionReason(verification.getRejectionReason());
