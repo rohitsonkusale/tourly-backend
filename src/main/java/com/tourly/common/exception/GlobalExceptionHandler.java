@@ -136,9 +136,12 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request) {
 
+        // Log the full stack trace so we can see the real error
+        ex.printStackTrace();
+
         return buildErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                "Something went wrong",
+                ex.getMessage() != null ? ex.getMessage() : "Something went wrong",
                 request.getRequestURI(),
                 null
         );

@@ -30,13 +30,13 @@ public class HostVerificationRequest {
     @Pattern(regexp = "^[A-Z]{5}[0-9]{4}[A-Z]{1}$", message = "PAN number format is invalid")
     private String panNumber;
 
-    @Size(max = 500, message = "Aadhaar document URL cannot exceed 500 characters")
+    @Size(max = 5000000, message = "Aadhaar document is too large")
     private String aadhaarDocumentUrl;
 
-    @Size(max = 500, message = "PAN document URL cannot exceed 500 characters")
+    @Size(max = 5000000, message = "PAN document is too large")
     private String panDocumentUrl;
 
-    @Size(max = 500, message = "Selfie URL cannot exceed 500 characters")
+    @Size(max = 5000000, message = "Selfie is too large")
     private String selfieUrl;
 
     public HostVerificationRequest() {}

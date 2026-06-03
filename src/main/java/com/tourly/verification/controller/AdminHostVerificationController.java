@@ -84,16 +84,26 @@ public class AdminHostVerificationController {
 
     @PutMapping("/{verificationId}/reject")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(
-            summary = "Reject verification",
-            description = "Reject a host verification request with admin remarks",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
+    @Operation(summary = "Reject verification", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<HostVerificationResponse>> rejectVerification(
-            @PathVariable @Positive(message = "Verification ID must be greater than 0") Long verificationId,
+            @PathVariable @Positive Long verificationId,
             @Valid @RequestBody AdminVerificationActionRequest request) {
         HostVerificationResponse response = adminHostVerificationService.rejectVerification(verificationId, request);
         return ResponseEntity.ok(ApiResponse.success("Host verification rejected successfully", response));
+    }
+
+    @PutMapping("/{verificationId}/request-changes")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Request changes from host",
+            description = "Sets verificationStatus=PENDING_REVIEW so host can resubmit with corrections",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<ApiResponse<HostVerificationResponse>> requestChanges(
+            @PathVariable @Positive Long verificationId,
+            @Valid @RequestBody AdminVerificationActionRequest request) {
+        HostVerificationResponse response = adminHostVerificationService.requestChanges(verificationId, request);
+        return ResponseEntity.ok(ApiResponse.success("Changes requested from host successfully", response));
     }
 
     @PutMapping("/{verificationId}/suspend")

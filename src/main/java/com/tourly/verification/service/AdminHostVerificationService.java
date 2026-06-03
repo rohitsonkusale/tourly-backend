@@ -17,5 +17,7 @@ public interface AdminHostVerificationService {
 
     HostVerificationResponse rejectVerification(Long verificationId, AdminVerificationActionRequest request);
 
+    HostVerificationResponse requestChanges(Long verificationId, AdminVerificationActionRequest request);
+
     HostVerificationResponse suspendVerification(Long verificationId, AdminVerificationActionRequest request);
 }

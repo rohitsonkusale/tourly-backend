@@ -17,5 +17,17 @@ public interface HostVerificationRepository extends JpaRepository<HostVerificati
     boolean existsByUserId(Long userId);
 
     List<HostVerification> findByVerificationStatusOrderBySubmittedAtAsc(ApprovalStatus status);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT h FROM HostVerification h JOIN FETCH h.user WHERE h.id = :id"
+    )
+    Optional<HostVerification> findByIdWithUser(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT h FROM HostVerification h JOIN FETCH h.user WHERE h.verificationStatus = :status ORDER BY h.submittedAt ASC"
+    )
+    List<HostVerification> findByStatusWithUser(
+        @org.springframework.data.repository.query.Param("status") ApprovalStatus status
+    );
 }
 

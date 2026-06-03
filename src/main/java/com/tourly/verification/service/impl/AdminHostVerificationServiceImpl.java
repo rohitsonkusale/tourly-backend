@@ -35,9 +35,8 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     @Override
     @Transactional(readOnly = true)
     public List<HostVerificationResponse> getPendingVerifications() {
-        return hostVerificationRepository.findByVerificationStatusOrderBySubmittedAtAsc(ApprovalStatus.PENDING)
+        return hostVerificationRepository.findByStatusWithUser(ApprovalStatus.PENDING)
                 .stream()
-                // Only show records that have at least one document uploaded (real submissions)
                 .filter(v -> v.getAadhaarDocumentUrl() != null
                         || v.getPanDocumentUrl() != null
                         || v.getSelfieUrl() != null)
@@ -48,7 +47,7 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     @Override
     @Transactional(readOnly = true)
     public List<HostVerificationResponse> getVerificationsByStatus(ApprovalStatus status) {
-        return hostVerificationRepository.findByVerificationStatusOrderBySubmittedAtAsc(status)
+        return hostVerificationRepository.findByStatusWithUser(status)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -62,11 +61,14 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public HostVerificationResponse approveVerification(Long verificationId) {
         HostVerification verification = getVerificationOrThrow(verificationId);
 
-        if (verification.getVerificationStatus() != ApprovalStatus.PENDING) {
-            throw new BadRequestException("Only pending verification requests can be approved");
+        // Allow approve on PENDING or PENDING_REVIEW
+        if (verification.getVerificationStatus() != ApprovalStatus.PENDING
+                && verification.getVerificationStatus() != ApprovalStatus.PENDING_REVIEW) {
+            throw new BadRequestException("Can only approve PENDING or PENDING_REVIEW verifications");
         }
 
         User adminUser = getCurrentAdmin();
@@ -89,11 +91,14 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public HostVerificationResponse rejectVerification(Long verificationId, AdminVerificationActionRequest request) {
         HostVerification verification = getVerificationOrThrow(verificationId);
 
-        if (verification.getVerificationStatus() != ApprovalStatus.PENDING) {
-            throw new BadRequestException("Only pending verification requests can be rejected");
+        // Allow reject on PENDING or PENDING_REVIEW
+        if (verification.getVerificationStatus() != ApprovalStatus.PENDING
+                && verification.getVerificationStatus() != ApprovalStatus.PENDING_REVIEW) {
+            throw new BadRequestException("Can only reject PENDING or PENDING_REVIEW verifications");
         }
 
         if (request == null || request.getReason() == null || request.getReason().trim().isEmpty()) {
@@ -119,6 +124,37 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
+    public HostVerificationResponse requestChanges(Long verificationId, AdminVerificationActionRequest request) {
+        HostVerification verification = getVerificationOrThrow(verificationId);
+
+        // Allow on PENDING or PENDING_REVIEW (admin can update their message)
+        if (verification.getVerificationStatus() != ApprovalStatus.PENDING
+                && verification.getVerificationStatus() != ApprovalStatus.PENDING_REVIEW) {
+            throw new BadRequestException("Can only request changes on PENDING or PENDING_REVIEW verifications");
+        }
+
+        if (request == null || request.getReason() == null || request.getReason().trim().isEmpty()) {
+            throw new BadRequestException("A message explaining required changes is mandatory");
+        }
+
+        User adminUser = getCurrentAdmin();
+        User applicant = verification.getUser();
+
+        verification.setVerificationStatus(ApprovalStatus.PENDING_REVIEW);
+        verification.setRejectionReason(request.getReason().trim());
+        verification.setReviewedAt(LocalDateTime.now());
+        verification.setReviewedBy(adminUser);
+
+        applicant.setKycVerified(false);
+
+        userRepository.save(applicant);
+        HostVerification saved = hostVerificationRepository.save(verification);
+        return mapToResponse(saved);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
     public HostVerificationResponse suspendVerification(Long verificationId, AdminVerificationActionRequest request) {
         HostVerification verification = getVerificationOrThrow(verificationId);
 
@@ -150,7 +186,7 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     }
 
     private HostVerification getVerificationOrThrow(Long verificationId) {
-        return hostVerificationRepository.findById(verificationId)
+        return hostVerificationRepository.findByIdWithUser(verificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Verification request not found with id: " + verificationId));
     }
 
@@ -172,28 +208,31 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         HostVerificationResponse response = new HostVerificationResponse();
 
         response.setId(verification.getId());
-        response.setUserId(verification.getUser().getId());
+
+        User user = verification.getUser();
+        if (user != null) {
+            response.setUserId(user.getId());
+            response.setMaskedAadhaarNumber(user.getAadhaarNumber());
+            response.setMaskedPanNumber(user.getPanNumber());
+        }
+
         response.setDisplayName(verification.getDisplayName());
         response.setBio(verification.getBio());
         response.setSpecialization(verification.getSpecialization());
         response.setExperienceYears(verification.getExperienceYears());
 
-        response.setMaskedAadhaarNumber(maskAadhaar(verification.getUser().getAadhaarNumber()));
-        response.setMaskedPanNumber(maskPan(verification.getUser().getPanNumber()));
-
+        // Return actual document URLs/base64 data for admin review
         response.setAadhaarDocumentUrl(verification.getAadhaarDocumentUrl());
         response.setPanDocumentUrl(verification.getPanDocumentUrl());
         response.setSelfieUrl(verification.getSelfieUrl());
 
         response.setVerificationStatus(verification.getVerificationStatus());
         response.setRejectionReason(verification.getRejectionReason());
-
         response.setSubmittedAt(verification.getSubmittedAt());
         response.setReviewedAt(verification.getReviewedAt());
         response.setReviewedByUserId(
                 verification.getReviewedBy() != null ? verification.getReviewedBy().getId() : null
         );
-
         response.setCreatedAt(verification.getCreatedAt());
         response.setUpdatedAt(verification.getUpdatedAt());
 

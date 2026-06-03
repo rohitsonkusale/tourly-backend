@@ -46,13 +46,13 @@ public class PlannerVerification {
 
 
 
-    @Column(name = "aadhaar_document_url", length = 500)
+    @Column(name = "aadhaar_document_url", columnDefinition = "LONGTEXT")
     private String aadhaarDocumentUrl;
 
-    @Column(name = "pan_document_url", length = 500)
+    @Column(name = "pan_document_url", columnDefinition = "LONGTEXT")
     private String panDocumentUrl;
 
-    @Column(name = "selfie_url", length = 500)
+    @Column(name = "selfie_url", columnDefinition = "LONGTEXT")
     private String selfieUrl;
 
     @Enumerated(EnumType.STRING)
