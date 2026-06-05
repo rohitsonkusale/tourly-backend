@@ -83,6 +83,38 @@ public class Trip {
     @Column(name = "best_time")
     private String bestTime;
 
+    // ── New rich data fields ──────────────────────────────────
+    @Column(name = "starts_from", length = 255)
+    private String startsFrom;
+
+    @Column(name = "ends_at", length = 255)
+    private String endsAt;
+
+    @Column(name = "about_description", columnDefinition = "TEXT")
+    private String aboutDescription;
+
+    @Column(name = "min_group_size")
+    private Integer minGroupSize;
+
+    @Column(name = "duration_days")
+    private Integer durationDays;
+
+    @Column(name = "duration_nights")
+    private Integer durationNights;
+
+    @Column(name = "badges", columnDefinition = "TEXT")
+    private String badges; // JSON array string e.g. ["Adventure","Weekend"]
+
+    // ── Dynamic pricing ───────────────────────────────────────
+    @Column(name = "max_discount_percent", precision = 5, scale = 2)
+    private java.math.BigDecimal maxDiscountPercent = java.math.BigDecimal.ZERO;
+
+    @Column(name = "max_increase_percent", precision = 5, scale = 2)
+    private java.math.BigDecimal maxIncreasePercent = java.math.BigDecimal.ZERO;
+
+    @Column(name = "current_price", precision = 12, scale = 2)
+    private java.math.BigDecimal currentPrice;
+
     @Column(name = "is_active")
     private Boolean active = true;
 
@@ -97,6 +129,31 @@ public class Trip {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    // ── Child Collections ─────────────────────────────────────
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TripHighlight> highlights = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TripItineraryDay> itinerary = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TripStay> stays = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TripStop> stops = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TripItem> items = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TripMedia> media = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TripPriceBreakdown> priceBreakdown = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<TripBatch> batches = new java.util.ArrayList<>();
 
     public Trip() {
     }
@@ -360,4 +417,64 @@ public class Trip {
     public void setBestTime(String bestTime) {
         this.bestTime = bestTime;
     }
+
+    // ── New rich data fields getters/setters ──────────────────
+
+    public String getStartsFrom() { return startsFrom; }
+    public void setStartsFrom(String startsFrom) { this.startsFrom = startsFrom; }
+
+    public String getEndsAt() { return endsAt; }
+    public void setEndsAt(String endsAt) { this.endsAt = endsAt; }
+
+    public String getAboutDescription() { return aboutDescription; }
+    public void setAboutDescription(String aboutDescription) { this.aboutDescription = aboutDescription; }
+
+    public Integer getMinGroupSize() { return minGroupSize; }
+    public void setMinGroupSize(Integer minGroupSize) { this.minGroupSize = minGroupSize; }
+
+    public Integer getDurationDays() { return durationDays; }
+    public void setDurationDays(Integer durationDays) { this.durationDays = durationDays; }
+
+    public Integer getDurationNights() { return durationNights; }
+    public void setDurationNights(Integer durationNights) { this.durationNights = durationNights; }
+
+    public String getBadges() { return badges; }
+    public void setBadges(String badges) { this.badges = badges; }
+
+    // ── Dynamic pricing getters/setters ───────────────────────
+
+    public java.math.BigDecimal getMaxDiscountPercent() { return maxDiscountPercent; }
+    public void setMaxDiscountPercent(java.math.BigDecimal maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent; }
+
+    public java.math.BigDecimal getMaxIncreasePercent() { return maxIncreasePercent; }
+    public void setMaxIncreasePercent(java.math.BigDecimal maxIncreasePercent) { this.maxIncreasePercent = maxIncreasePercent; }
+
+    public java.math.BigDecimal getCurrentPrice() { return currentPrice; }
+    public void setCurrentPrice(java.math.BigDecimal currentPrice) { this.currentPrice = currentPrice; }
+
+    // ── Child Collections getters/setters ─────────────────────
+
+    public java.util.List<TripHighlight> getHighlights() { return highlights; }
+    public void setHighlights(java.util.List<TripHighlight> highlights) { this.highlights = highlights; }
+
+    public java.util.List<TripItineraryDay> getItinerary() { return itinerary; }
+    public void setItinerary(java.util.List<TripItineraryDay> itinerary) { this.itinerary = itinerary; }
+
+    public java.util.List<TripStay> getStays() { return stays; }
+    public void setStays(java.util.List<TripStay> stays) { this.stays = stays; }
+
+    public java.util.List<TripStop> getStops() { return stops; }
+    public void setStops(java.util.List<TripStop> stops) { this.stops = stops; }
+
+    public java.util.List<TripItem> getItems() { return items; }
+    public void setItems(java.util.List<TripItem> items) { this.items = items; }
+
+    public java.util.List<TripMedia> getMedia() { return media; }
+    public void setMedia(java.util.List<TripMedia> media) { this.media = media; }
+
+    public java.util.List<TripPriceBreakdown> getPriceBreakdown() { return priceBreakdown; }
+    public void setPriceBreakdown(java.util.List<TripPriceBreakdown> priceBreakdown) { this.priceBreakdown = priceBreakdown; }
+
+    public java.util.List<TripBatch> getBatches() { return batches; }
+    public void setBatches(java.util.List<TripBatch> batches) { this.batches = batches; }
 }

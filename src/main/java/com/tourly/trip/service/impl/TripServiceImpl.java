@@ -1,7 +1,11 @@
 package com.tourly.trip.service.impl;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,30 +18,47 @@ import com.tourly.auth.entity.AccountStatus;
 import com.tourly.auth.entity.RoleName;
 import com.tourly.auth.entity.User;
 import com.tourly.auth.repository.UserRepository;
+import com.tourly.booking.repository.BookingRepository;
+import com.tourly.common.entity.HostVerification;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
 import com.tourly.trip.dto.request.CreateTripRequest;
 import com.tourly.trip.dto.request.UpdateTripRequest;
-import com.tourly.trip.dto.response.TripResponse;
-import com.tourly.trip.entity.Destination;
-import com.tourly.trip.entity.Trip;
-import com.tourly.trip.enums.TripStatus;
-import com.tourly.trip.mapper.TripMapper;
-import com.tourly.trip.repository.DestinationRepository;
-import com.tourly.trip.repository.TripRepository;
-import com.tourly.trip.service.TripService;
-import com.tourly.verification.entity.PlannerVerification;
-import com.tourly.verification.enums.VerificationStatus;
-import com.tourly.verification.repository.PlannerVerificationRepository;
-import com.tourly.verification.repository.HostVerificationRepository;
-import com.tourly.common.entity.HostVerification;
-import com.tourly.trip.enums.ApprovalStatus;
 import com.tourly.trip.dto.response.HostAnalyticsResponse;
 import com.tourly.trip.dto.response.HostAnalyticsResponse.TripBookingSummary;
 import com.tourly.trip.dto.response.HostStatsResponse;
-import java.util.List;
-import java.util.stream.Collectors;
-import com.tourly.booking.repository.BookingRepository;
+import com.tourly.trip.dto.response.TripResponse;
+import com.tourly.trip.entity.Destination;
+import com.tourly.trip.entity.Trip;
+import com.tourly.trip.entity.TripBatch;
+import com.tourly.trip.entity.TripHighlight;
+import com.tourly.trip.entity.TripItem;
+import com.tourly.trip.entity.TripItineraryDay;
+import com.tourly.trip.entity.TripMedia;
+import com.tourly.trip.entity.TripPriceBreakdown;
+import com.tourly.trip.entity.TripStay;
+import com.tourly.trip.entity.TripStayAmenity;
+import com.tourly.trip.entity.TripStayImage;
+import com.tourly.trip.entity.TripStop;
+import com.tourly.trip.enums.ApprovalStatus;
+import com.tourly.trip.enums.MediaType;
+import com.tourly.trip.enums.TripStatus;
+import com.tourly.trip.mapper.TripMapper;
+import com.tourly.trip.repository.DestinationRepository;
+import com.tourly.trip.repository.TripBatchRepository;
+import com.tourly.trip.repository.TripHighlightRepository;
+import com.tourly.trip.repository.TripItemRepository;
+import com.tourly.trip.repository.TripItineraryDayRepository;
+import com.tourly.trip.repository.TripMediaRepository;
+import com.tourly.trip.repository.TripPriceBreakdownRepository;
+import com.tourly.trip.repository.TripRepository;
+import com.tourly.trip.repository.TripStayRepository;
+import com.tourly.trip.repository.TripStopRepository;
+import com.tourly.trip.service.TripService;
+import com.tourly.verification.entity.PlannerVerification;
+import com.tourly.verification.enums.VerificationStatus;
+import com.tourly.verification.repository.HostVerificationRepository;
+import com.tourly.verification.repository.PlannerVerificationRepository;
 
 @Service
 @Transactional
@@ -49,6 +70,14 @@ public class TripServiceImpl implements TripService {
     private final PlannerVerificationRepository plannerVerificationRepository;
     private final HostVerificationRepository hostVerificationRepository;
     private final BookingRepository bookingRepository;
+    private final TripHighlightRepository tripHighlightRepository;
+    private final TripItemRepository tripItemRepository;
+    private final TripItineraryDayRepository tripItineraryDayRepository;
+    private final TripMediaRepository tripMediaRepository;
+    private final TripStayRepository tripStayRepository;
+    private final TripStopRepository tripStopRepository;
+    private final TripPriceBreakdownRepository tripPriceBreakdownRepository;
+    private final TripBatchRepository tripBatchRepository;
 
     public TripServiceImpl(
             TripRepository tripRepository,
@@ -56,13 +85,29 @@ public class TripServiceImpl implements TripService {
             UserRepository userRepository,
             PlannerVerificationRepository plannerVerificationRepository,
             HostVerificationRepository hostVerificationRepository,
-            BookingRepository bookingRepository) {
+            BookingRepository bookingRepository,
+            TripHighlightRepository tripHighlightRepository,
+            TripItemRepository tripItemRepository,
+            TripItineraryDayRepository tripItineraryDayRepository,
+            TripMediaRepository tripMediaRepository,
+            TripStayRepository tripStayRepository,
+            TripStopRepository tripStopRepository,
+            TripPriceBreakdownRepository tripPriceBreakdownRepository,
+            TripBatchRepository tripBatchRepository) {
         this.tripRepository = tripRepository;
         this.destinationRepository = destinationRepository;
         this.userRepository = userRepository;
         this.plannerVerificationRepository = plannerVerificationRepository;
         this.hostVerificationRepository = hostVerificationRepository;
         this.bookingRepository = bookingRepository;
+        this.tripHighlightRepository = tripHighlightRepository;
+        this.tripItemRepository = tripItemRepository;
+        this.tripItineraryDayRepository = tripItineraryDayRepository;
+        this.tripMediaRepository = tripMediaRepository;
+        this.tripStayRepository = tripStayRepository;
+        this.tripStopRepository = tripStopRepository;
+        this.tripPriceBreakdownRepository = tripPriceBreakdownRepository;
+        this.tripBatchRepository = tripBatchRepository;
     }
 
     // ========================================
@@ -77,50 +122,249 @@ public class TripServiceImpl implements TripService {
     @Override
     public TripResponse createTrip(CreateTripRequest request) {
         User currentUser = getCurrentUser();
-
         RoleName roleName = getRoleName(currentUser);
 
-        // Only HOST or ADMIN can create trip
         if (roleName != RoleName.HOST && roleName != RoleName.ADMIN) {
             throw new BadRequestException("Only verified hosts can create trips.");
         }
-
-        // Admin bypasses verification
         if (roleName != RoleName.ADMIN) {
             validateVerifiedUser(currentUser);
         }
 
-        Destination destination = destinationRepository.findById(request.getDestinationId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Destination not found with ID: " + request.getDestinationId()));
+        // ── 1. Find or create destination ─────────────────────
+        String city = request.getDestinationCity().trim();
+        String state = request.getDestinationState() != null ? request.getDestinationState().trim() : "";
+
+        Destination destination = destinationRepository.findByCityIgnoreCase(city)
+                .orElseGet(() -> {
+                    Destination d = new Destination();
+                    d.setCity(city);
+                    d.setState(state.isEmpty() ? null : state);
+                    d.setCountry("India");
+                    d.setIsActive(true);
+                    return destinationRepository.save(d);
+                });
 
         validateTripDates(request.getStartDate(), request.getEndDate());
-        validateTripPricing(request.getBasePrice(), request.getMinPrice(), request.getMaxPrice());
 
+        // ── 2. Calculate pricing ──────────────────────────────
+        BigDecimal basePrice = request.getBasePrice();
+        BigDecimal discountPct = request.getMaxDiscountPercent() != null
+                ? request.getMaxDiscountPercent() : BigDecimal.ZERO;
+        BigDecimal increasePct = request.getMaxIncreasePercent() != null
+                ? request.getMaxIncreasePercent() : BigDecimal.ZERO;
+
+        BigDecimal minPrice = basePrice.multiply(
+                BigDecimal.ONE.subtract(discountPct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP))
+        ).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal maxPrice = basePrice.multiply(
+                BigDecimal.ONE.add(increasePct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP))
+        ).setScale(2, RoundingMode.HALF_UP);
+
+        validateTripPricing(basePrice, minPrice, maxPrice);
+
+        // ── 3. Save core trip ─────────────────────────────────
         Trip trip = new Trip();
         trip.setTitle(request.getTitle().trim());
-        trip.setDescription(request.getDescription().trim());
-
-        // Keeping existing field name planner as per your entity design
+        trip.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
         trip.setPlanner(currentUser);
-
         trip.setDestination(destination);
         trip.setStartDate(request.getStartDate());
         trip.setEndDate(request.getEndDate());
-        trip.setBasePrice(request.getBasePrice());
-        trip.setMinPrice(request.getMinPrice());
-        trip.setMaxPrice(request.getMaxPrice());
+        trip.setBasePrice(basePrice);
+        trip.setMinPrice(minPrice);
+        trip.setMaxPrice(maxPrice);
+        trip.setCurrentPrice(basePrice);
+        trip.setMaxDiscountPercent(discountPct);
+        trip.setMaxIncreasePercent(increasePct);
         trip.setTotalSeats(request.getTotalSeats());
+        trip.setMinGroupSize(request.getMinGroupSize());
         trip.setBookedSeats(0);
         trip.setCategory(request.getCategory());
         trip.setCancellationPolicy(request.getCancellationPolicy());
-
-        // Business defaults
         trip.setStatus(TripStatus.DRAFT);
-        trip.setActive(true);
+        trip.setApprovalStatus(ApprovalStatus.PENDING);
+        trip.setActive(false); // hidden until admin approves
         trip.setDeleted(false);
 
+        // Rich fields
+        trip.setStartsFrom(request.getStartsFrom());
+        trip.setEndsAt(request.getEndsAt());
+        trip.setTripType(request.getTripType());
+        trip.setDifficulty(request.getDifficulty());
+        trip.setBestTime(request.getBestTime());
+        trip.setDurationDays(request.getDurationDays());
+        trip.setDurationNights(request.getDurationNights());
+        trip.setAboutDescription(request.getAboutDescription());
+        trip.setBadges(request.getBadges());
+
         Trip savedTrip = tripRepository.save(trip);
+
+        // ── 4. Save highlights ────────────────────────────────
+        if (request.getHighlights() != null) {
+            for (int i = 0; i < request.getHighlights().size(); i++) {
+                CreateTripRequest.HighlightItem h = request.getHighlights().get(i);
+                if (h.getTitle() == null || h.getTitle().trim().isEmpty()) continue;
+                TripHighlight highlight = new TripHighlight();
+                highlight.setTrip(savedTrip);
+                highlight.setIcon(h.getIcon() != null ? h.getIcon() : "star");
+                highlight.setTitle(h.getTitle().trim());
+                highlight.setSortOrder(i);
+                tripHighlightRepository.save(highlight);
+            }
+        }
+
+        // ── 5. Save gallery media (Cloudinary URLs) ───────────
+        if (request.getGalleryUrls() != null) {
+            for (int i = 0; i < request.getGalleryUrls().size(); i++) {
+                String url = request.getGalleryUrls().get(i);
+                if (url == null || url.trim().isEmpty()) continue;
+                TripMedia media = new TripMedia();
+                media.setTrip(savedTrip);
+                media.setUrl(url.trim());
+                media.setMediaType(MediaType.IMAGE);
+                media.setIsCover(false);
+                media.setSortOrder(i);
+                tripMediaRepository.save(media);
+            }
+        }
+        if (request.getCoverImageUrl() != null && !request.getCoverImageUrl().trim().isEmpty()) {
+            TripMedia cover = new TripMedia();
+            cover.setTrip(savedTrip);
+            cover.setUrl(request.getCoverImageUrl().trim());
+            cover.setMediaType(MediaType.IMAGE);
+            cover.setIsCover(true);
+            cover.setSortOrder(0);
+            tripMediaRepository.save(cover);
+        }
+
+        // ── 6. Save itinerary ─────────────────────────────────
+        if (request.getItinerary() != null) {
+            for (CreateTripRequest.ItineraryDayItem day : request.getItinerary()) {
+                if (day.getTitle() == null || day.getTitle().trim().isEmpty()) continue;
+                TripItineraryDay itDay = new TripItineraryDay();
+                itDay.setTrip(savedTrip);
+                itDay.setDayNumber(day.getDay() != null ? day.getDay() : 1);
+                itDay.setTitle(day.getTitle().trim());
+                itDay.setDescription(day.getDescription());
+                itDay.setStay(day.getStay());
+                itDay.setMeals(day.getMeals());
+                itDay.setSortOrder(day.getDay() != null ? day.getDay() : 0);
+                tripItineraryDayRepository.save(itDay);
+            }
+        }
+
+        // ── 7. Save inclusions ────────────────────────────────
+        if (request.getInclusions() != null) {
+            for (int i = 0; i < request.getInclusions().size(); i++) {
+                String desc = request.getInclusions().get(i);
+                if (desc == null || desc.trim().isEmpty()) continue;
+                TripItem item = new TripItem();
+                item.setTrip(savedTrip);
+                item.setType("INCLUSION");
+                item.setDescription(desc.trim());
+                item.setSortOrder(i);
+                tripItemRepository.save(item);
+            }
+        }
+
+        // ── 8. Save exclusions ────────────────────────────────
+        if (request.getExclusions() != null) {
+            for (int i = 0; i < request.getExclusions().size(); i++) {
+                String desc = request.getExclusions().get(i);
+                if (desc == null || desc.trim().isEmpty()) continue;
+                TripItem item = new TripItem();
+                item.setTrip(savedTrip);
+                item.setType("EXCLUSION");
+                item.setDescription(desc.trim());
+                item.setSortOrder(i);
+                tripItemRepository.save(item);
+            }
+        }
+
+        // ── 9. Save stops ─────────────────────────────────────
+        if (request.getStops() != null) {
+            for (int i = 0; i < request.getStops().size(); i++) {
+                String stopName = request.getStops().get(i);
+                if (stopName == null || stopName.trim().isEmpty()) continue;
+                TripStop stop = new TripStop();
+                stop.setTrip(savedTrip);
+                stop.setStopName(stopName.trim());
+                stop.setSortOrder(i);
+                tripStopRepository.save(stop);
+            }
+        }
+
+        // ── 10. Save stays ────────────────────────────────────
+        if (request.getStays() != null) {
+            for (int i = 0; i < request.getStays().size(); i++) {
+                CreateTripRequest.StayItem s = request.getStays().get(i);
+                if (s.getName() == null || s.getName().trim().isEmpty()) continue;
+                TripStay stay = new TripStay();
+                stay.setTrip(savedTrip);
+                stay.setName(s.getName().trim());
+                stay.setLocation(s.getLocation());
+                stay.setDescription(s.getDescription());
+                stay.setSortOrder(i);
+                TripStay savedStay = tripStayRepository.save(stay);
+
+                // Amenities
+                if (s.getAmenities() != null) {
+                    for (String amenity : s.getAmenities()) {
+                        if (amenity == null || amenity.trim().isEmpty()) continue;
+                        TripStayAmenity a = new TripStayAmenity();
+                        a.setStay(savedStay);
+                        a.setAmenity(amenity.trim());
+                        savedStay.getAmenities().add(a);
+                    }
+                }
+
+                // Stay images (Cloudinary URLs)
+                if (s.getImages() != null) {
+                    for (int j = 0; j < s.getImages().size(); j++) {
+                        String imgUrl = s.getImages().get(j);
+                        if (imgUrl == null || imgUrl.trim().isEmpty()) continue;
+                        TripStayImage img = new TripStayImage();
+                        img.setStay(savedStay);
+                        img.setImageUrl(imgUrl.trim());
+                        img.setSortOrder(j);
+                        savedStay.getImages().add(img);
+                    }
+                }
+                tripStayRepository.save(savedStay);
+            }
+        }
+
+        // ── 11. Save price breakdown ──────────────────────────
+        if (request.getPriceBreakdown() != null) {
+            for (int i = 0; i < request.getPriceBreakdown().size(); i++) {
+                CreateTripRequest.PriceBreakdownItem pb = request.getPriceBreakdown().get(i);
+                if (pb.getCategory() == null || pb.getAmount() == null) continue;
+                TripPriceBreakdown breakdown = new TripPriceBreakdown();
+                breakdown.setTrip(savedTrip);
+                breakdown.setCategory(pb.getCategory().trim());
+                breakdown.setAmount(pb.getAmount());
+                breakdown.setDescription(pb.getDescription());
+                breakdown.setSortOrder(i);
+                tripPriceBreakdownRepository.save(breakdown);
+            }
+        }
+
+        // ── 12. Save batches ──────────────────────────────────
+        if (request.getBatches() != null) {
+            for (CreateTripRequest.BatchItem b : request.getBatches()) {
+                if (b.getStartDate() == null || b.getEndDate() == null) continue;
+                TripBatch batch = new TripBatch();
+                batch.setTrip(savedTrip);
+                batch.setStartDate(b.getStartDate());
+                batch.setEndDate(b.getEndDate());
+                batch.setPrice(b.getPrice() != null ? b.getPrice() : basePrice);
+                batch.setSeatsAvailable(request.getTotalSeats());
+                batch.setStatus("OPEN");
+                tripBatchRepository.save(batch);
+            }
+        }
 
         return TripMapper.mapToResponse(savedTrip);
     }
