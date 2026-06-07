@@ -30,6 +30,12 @@ public class HostVerification {
     @Column(name = "experience_years")
     private Integer experienceYears;
 
+    @Column(name = "aadhaar_number", length = 12)
+    private String aadhaarNumber;
+
+    @Column(name = "pan_number", length = 10)
+    private String panNumber;
+
     @Column(name = "aadhaar_document_url", columnDefinition = "LONGTEXT")
     private String aadhaarDocumentUrl;
 
@@ -82,6 +88,10 @@ public class HostVerification {
     public void setSpecialization(String specialization) { this.specialization = specialization; }
     public Integer getExperienceYears() { return experienceYears; }
     public void setExperienceYears(Integer experienceYears) { this.experienceYears = experienceYears; }
+    public String getAadhaarNumber() { return aadhaarNumber; }
+    public void setAadhaarNumber(String aadhaarNumber) { this.aadhaarNumber = aadhaarNumber; }
+    public String getPanNumber() { return panNumber; }
+    public void setPanNumber(String panNumber) { this.panNumber = panNumber; }
     public String getAadhaarDocumentUrl() { return aadhaarDocumentUrl; }
     public void setAadhaarDocumentUrl(String aadhaarDocumentUrl) { this.aadhaarDocumentUrl = aadhaarDocumentUrl; }
     public String getPanDocumentUrl() { return panDocumentUrl; }

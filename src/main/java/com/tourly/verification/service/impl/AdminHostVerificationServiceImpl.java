@@ -212,9 +212,14 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         User user = verification.getUser();
         if (user != null) {
             response.setUserId(user.getId());
-            response.setMaskedAadhaarNumber(user.getAadhaarNumber());
-            response.setMaskedPanNumber(user.getPanNumber());
+            // Aadhaar & PAN from users table
+            response.setUserAadhaarNumber(user.getAadhaarNumber());
+            response.setUserPanNumber(user.getPanNumber());
         }
+
+        // Aadhaar & PAN from host_verifications table (submitted during KYC)
+        response.setMaskedAadhaarNumber(verification.getAadhaarNumber());
+        response.setMaskedPanNumber(verification.getPanNumber());
 
         response.setDisplayName(verification.getDisplayName());
         response.setBio(verification.getBio());

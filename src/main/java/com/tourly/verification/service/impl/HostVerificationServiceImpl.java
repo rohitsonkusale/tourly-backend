@@ -58,6 +58,10 @@ public class HostVerificationServiceImpl implements HostVerificationService {
         currentUser.setPanNumber(request.getPanNumber().trim().toUpperCase());
         userRepository.save(currentUser);
 
+        // Also save Aadhaar and PAN numbers to host_verifications table
+        verification.setAadhaarNumber(request.getAadhaarNumber().trim());
+        verification.setPanNumber(request.getPanNumber().trim().toUpperCase());
+
         verification.setAadhaarDocumentUrl(request.getAadhaarDocumentUrl() != null ? request.getAadhaarDocumentUrl().trim() : null);
         verification.setPanDocumentUrl(request.getPanDocumentUrl() != null ? request.getPanDocumentUrl().trim() : null);
         verification.setSelfieUrl(request.getSelfieUrl() != null ? request.getSelfieUrl().trim() : null);

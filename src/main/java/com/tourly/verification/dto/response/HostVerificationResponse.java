@@ -1,6 +1,7 @@
 package com.tourly.verification.dto.response;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tourly.verification.enums.VerificationStatus;
 
 public class HostVerificationResponse {
@@ -14,6 +15,13 @@ public class HostVerificationResponse {
 
     private String maskedAadhaarNumber;
     private String maskedPanNumber;
+
+    // Aadhaar and PAN from users table (user profile)
+    @JsonProperty("userAadhaarNumber")
+    private String userAadhaarNumber;
+
+    @JsonProperty("userPanNumber")
+    private String userPanNumber;
 
     private String aadhaarDocumentUrl;
     private String panDocumentUrl;
@@ -94,6 +102,22 @@ public class HostVerificationResponse {
 
     public void setMaskedPanNumber(String maskedPanNumber) {
         this.maskedPanNumber = maskedPanNumber;
+    }
+
+    public String getUserAadhaarNumber() {
+        return userAadhaarNumber;
+    }
+
+    public void setUserAadhaarNumber(String userAadhaarNumber) {
+        this.userAadhaarNumber = userAadhaarNumber;
+    }
+
+    public String getUserPanNumber() {
+        return userPanNumber;
+    }
+
+    public void setUserPanNumber(String userPanNumber) {
+        this.userPanNumber = userPanNumber;
     }
 
     public String getAadhaarDocumentUrl() {
