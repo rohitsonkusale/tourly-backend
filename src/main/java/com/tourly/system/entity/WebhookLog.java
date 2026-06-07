@@ -11,32 +11,36 @@ public class WebhookLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "webhook_log_id")
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column(name = "provider", nullable = false, length = 50)
     private WebhookProvider provider;
 
     @Column(name = "event_type", nullable = false, length = 100)
     private String eventType;
 
-    @Column(nullable = false, columnDefinition = "JSON")
+    @Column(name = "payload", nullable = false, columnDefinition = "JSON")
     private String payload;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column(name = "status", nullable = false, length = 50)
     private WebhookStatus status = WebhookStatus.PENDING;
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
     @Column(name = "received_at", nullable = false, updatable = false)
-    private LocalDateTime receivedAt = LocalDateTime.now();
+    private LocalDateTime receivedAt;
 
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
 
     public WebhookLog() {}
+
+    @PrePersist
+    protected void onCreate() { this.receivedAt = LocalDateTime.now(); }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -51,7 +55,6 @@ public class WebhookLog {
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
     public LocalDateTime getReceivedAt() { return receivedAt; }
-    public void setReceivedAt(LocalDateTime receivedAt) { this.receivedAt = receivedAt; }
     public LocalDateTime getProcessedAt() { return processedAt; }
     public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
 }

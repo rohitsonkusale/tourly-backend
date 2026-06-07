@@ -2,8 +2,7 @@ package com.tourly.auth.entity;
 
 import com.tourly.common.converter.YNBooleanConverter;
 import jakarta.persistence.*;
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
@@ -11,18 +10,23 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
     private Long id;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id")
+    private Role role;
 
     @Column(name = "full_name", nullable = false, length = 120)
     private String fullName;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @Column(name = "email", nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(unique = true, length = 20)
+    @Column(name = "phone", unique = true, length = 20)
     private String phone;
 
-    @Column(nullable = true)
+    @Column(name = "password")
     private String password;
 
     @Column(name = "google_id", unique = true, length = 255)
@@ -43,16 +47,8 @@ public class User {
     @Column(name = "website_url", length = 500)
     private String websiteUrl;
 
-    @ManyToOne
-    @JoinColumn(name = "role_id")
-    private Role role;
-
-    // Getter & Setter
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
-
     @Enumerated(EnumType.STRING)
-    @Column(name = "account_status", nullable = false)
+    @Column(name = "account_status", nullable = false, length = 20)
     private AccountStatus accountStatus;
 
     @Column(name = "email_verified", nullable = false)
@@ -68,33 +64,19 @@ public class User {
     @Column(name = "admin_approval_flag", nullable = false, columnDefinition = "CHAR(1) DEFAULT 'N'")
     private Boolean adminApproved = false;
 
-    @Column(name = "last_login")
-    private LocalDate lastLoginDate;
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
 
-    @Column(name = "last_login_time")
-    private LocalTime lastLoginTime;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    @Column(name = "created_date", updatable = false)
-    private LocalDate createdDate;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 
-    @Column(name = "created_time", updatable = false)
-    private LocalTime createdTime;
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
-    @Column(name = "updated_date")
-    private LocalDate updatedDate;
-
-    @Column(name = "updated_time")
-    private LocalTime updatedTime;
-
-    @Column(name = "deleted_date")
-    private LocalDate deletedDate;
-
-    @Column(name = "deleted_time")
-    private LocalTime deletedTime;
-
-    // =========================
     // Constructors
-    // =========================
     public User() {
         this.accountStatus = AccountStatus.ACTIVE;
         this.emailVerified = false;
@@ -103,39 +85,12 @@ public class User {
         this.adminApproved = false;
     }
 
-    public User(Long id, String fullName, String email, String phone, String password, AccountStatus accountStatus,
-                Boolean emailVerified, Boolean phoneVerified, Boolean kycVerified, Boolean adminApproved, String aadhaarNumber, String panNumber,
-                LocalDate lastLoginDate, LocalTime lastLoginTime,
-                LocalDate createdDate, LocalTime createdTime,
-                LocalDate updatedDate, LocalTime updatedTime,
-                LocalDate deletedDate, LocalTime deletedTime) {
-        this.id = id;
-        this.fullName = fullName;
-        this.email = email;
-        this.phone = phone;
-        this.password = password;
-        this.accountStatus = accountStatus;
-        this.emailVerified = emailVerified;
-        this.phoneVerified = phoneVerified;
-        this.kycVerified = kycVerified;
-        this.adminApproved = adminApproved;
-        this.aadhaarNumber = aadhaarNumber;
-        this.panNumber = panNumber;
-        this.lastLoginDate = lastLoginDate;
-        this.lastLoginTime = lastLoginTime;
-        this.createdDate = createdDate;
-        this.createdTime = createdTime;
-        this.updatedDate = updatedDate;
-        this.updatedTime = updatedTime;
-        this.deletedDate = deletedDate;
-        this.deletedTime = deletedTime;
-    }
-
-    // =========================
     // Getters & Setters
-    // =========================
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
 
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
@@ -182,45 +137,29 @@ public class User {
     public Boolean getAdminApproved() { return adminApproved; }
     public void setAdminApproved(Boolean adminApproved) { this.adminApproved = adminApproved; }
 
-    public LocalDate getLastLoginDate() { return lastLoginDate; }
-    public void setLastLoginDate(LocalDate lastLoginDate) { this.lastLoginDate = lastLoginDate; }
+    public LocalDateTime getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
 
-    public LocalTime getLastLoginTime() { return lastLoginTime; }
-    public void setLastLoginTime(LocalTime lastLoginTime) { this.lastLoginTime = lastLoginTime; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public LocalDate getCreatedDate() { return createdDate; }
-    public void setCreatedDate(LocalDate createdDate) { this.createdDate = createdDate; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
-    public LocalTime getCreatedTime() { return createdTime; }
-    public void setCreatedTime(LocalTime createdTime) { this.createdTime = createdTime; }
+    public LocalDateTime getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
 
-    public LocalDate getUpdatedDate() { return updatedDate; }
-    public void setUpdatedDate(LocalDate updatedDate) { this.updatedDate = updatedDate; }
-
-    public LocalTime getUpdatedTime() { return updatedTime; }
-    public void setUpdatedTime(LocalTime updatedTime) { this.updatedTime = updatedTime; }
-
-    public LocalDate getDeletedDate() { return deletedDate; }
-    public void setDeletedDate(LocalDate deletedDate) { this.deletedDate = deletedDate; }
-
-    public LocalTime getDeletedTime() { return deletedTime; }
-    public void setDeletedTime(LocalTime deletedTime) { this.deletedTime = deletedTime; }
-
-    // =========================
     // Lifecycle Hooks
-    // =========================
     @PrePersist
     protected void onCreate() {
-        createdDate = LocalDate.now();
-        createdTime = LocalTime.now();
-        updatedDate = LocalDate.now();
-        updatedTime = LocalTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
         if (accountStatus == null) accountStatus = AccountStatus.ACTIVE;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedDate = LocalDate.now();
-        updatedTime = LocalTime.now();
+        updatedAt = LocalDateTime.now();
     }
 }

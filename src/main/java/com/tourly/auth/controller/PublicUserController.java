@@ -48,7 +48,7 @@ public class PublicUserController {
     public ResponseEntity<ApiResponse<PublicHostResponse>> getPublicHostProfile(
             @PathVariable @Positive(message = "User ID must be greater than 0") Long userId) {
 
-        User user = userRepository.findByIdAndDeletedDateIsNull(userId)
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Host not found with ID: " + userId));
 
         // Fetch all trips by this host
@@ -106,7 +106,7 @@ public class PublicUserController {
         response.setWebsiteUrl(user.getWebsiteUrl());
         response.setRoleName(user.getRole() != null && user.getRole().getName() != null
                 ? user.getRole().getName().name() : null);
-        response.setCreatedDate(user.getCreatedDate());
+        response.setCreatedDate(user.getCreatedAt());
         response.setTotalTrips(totalTrips);
         response.setPublishedTrips(publishedTrips);
         response.setTotalBookings(totalBookings);

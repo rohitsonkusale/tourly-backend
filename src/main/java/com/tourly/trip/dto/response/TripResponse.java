@@ -3,6 +3,7 @@ package com.tourly.trip.dto.response;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import com.tourly.trip.enums.ApprovalStatus;
 import com.tourly.trip.enums.TripCategory;
 import com.tourly.trip.enums.TripStatus;
@@ -32,7 +33,7 @@ public class TripResponse {
     private String tripType;
     private String difficulty;
     private String bestTime;
-    private String badges;
+    private List<String> badges;
     private String aboutDescription;
     private String coverImageUrl;
 
@@ -161,8 +162,8 @@ public class TripResponse {
     public String getBestTime() { return bestTime; }
     public void setBestTime(String bestTime) { this.bestTime = bestTime; }
 
-    public String getBadges() { return badges; }
-    public void setBadges(String badges) { this.badges = badges; }
+    public List<String> getBadges() { return badges; }
+    public void setBadges(List<String> badges) { this.badges = badges; }
 
     public String getAboutDescription() { return aboutDescription; }
     public void setAboutDescription(String aboutDescription) { this.aboutDescription = aboutDescription; }

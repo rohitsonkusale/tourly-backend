@@ -1,7 +1,6 @@
 package com.tourly.auth.service.impl;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.security.authentication.BadCredentialsException;
@@ -20,7 +19,6 @@ import com.tourly.auth.entity.User;
 import com.tourly.common.entity.HostVerification;
 import com.tourly.verification.entity.PlannerVerification;
 import com.tourly.verification.enums.VerificationStatus;
-import com.tourly.trip.enums.ApprovalStatus;
 import com.tourly.verification.repository.HostVerificationRepository;
 import com.tourly.verification.repository.PlannerVerificationRepository;
 import com.tourly.auth.mapper.UserMapper;
@@ -79,7 +77,7 @@ public class AuthServiceImpl implements AuthService {
             HostVerification hostVer = new HostVerification();
             hostVer.setUser(user);
             hostVer.setDisplayName(user.getFullName());
-            hostVer.setVerificationStatus(ApprovalStatus.PENDING);
+            hostVer.setVerificationStatus(VerificationStatus.PENDING);
             hostVerificationRepository.save(hostVer);
         } else if (role == RoleName.PLANNER) {
             PlannerVerification plannerVer = new PlannerVerification();
@@ -140,11 +138,20 @@ public class AuthServiceImpl implements AuthService {
 
         // Host/Planner accounts require admin approval before they can log in
         if (roleNameEnum == RoleName.HOST || roleNameEnum == RoleName.PLANNER) {
+            // Store optional KYC fields if provided at signup (but don't require them)
+            if (request.getAadhaarNumber() != null && !request.getAadhaarNumber().isBlank()) {
+                user.setAadhaarNumber(request.getAadhaarNumber());
+            }
+            if (request.getPanNumber() != null && !request.getPanNumber().isBlank()) {
+                user.setPanNumber(request.getPanNumber().toUpperCase());
+            }
+            if (request.getInstagramUsername() != null && !request.getInstagramUsername().isBlank()) {
+                user.setInstagramUsername(request.getInstagramUsername());
+            }
+            if (request.getWebsiteUrl() != null && !request.getWebsiteUrl().isBlank()) {
+                user.setWebsiteUrl(request.getWebsiteUrl());
+            }
             user.setAccountStatus(AccountStatus.PENDING_VERIFICATION);
-            user.setAadhaarNumber(request.getAadhaarNumber());
-            user.setPanNumber(request.getPanNumber().toUpperCase());
-            user.setInstagramUsername(request.getInstagramUsername());
-            user.setWebsiteUrl(request.getWebsiteUrl());
         } else {
             user.setAccountStatus(AccountStatus.ACTIVE);
         }
@@ -152,9 +159,7 @@ public class AuthServiceImpl implements AuthService {
         // 6️⃣ Save to DB
         User savedUser = userRepository.save(user);
 
-        if (roleNameEnum == RoleName.HOST || roleNameEnum == RoleName.PLANNER) {
-            createKycVerification(savedUser, roleNameEnum);
-        }
+        // No auto KYC record creation — host/planner will submit KYC manually later
 
         // 7️⃣ Return response
         return UserMapper.toResponse(savedUser);
@@ -190,7 +195,7 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        // Block other non-active accounts (unless they are newly approved but status hasn't been synced)
+        // Block non-active accounts
         if (user.getAccountStatus() != AccountStatus.ACTIVE && !Boolean.TRUE.equals(user.getAdminApproved())) {
             throw new BadRequestException(
                     "Your account is not active. Current status: " + user.getAccountStatus().name()
@@ -203,8 +208,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Update last login
-        user.setLastLoginDate(LocalDate.now());
-        user.setLastLoginTime(LocalTime.now());
+        user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
         // Generate JWT token
@@ -247,7 +251,71 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (userOpt.isEmpty()) {
-            throw new BadCredentialsException("You don't have an account yet. First signup then login");
+            // User doesn't exist — create a new account (Google Signup flow)
+            String roleName = request.getRole();
+            if (roleName == null || roleName.isBlank()) {
+                throw new BadCredentialsException("You don't have an account yet. First signup then login");
+            }
+
+            RoleName roleEnum;
+            try {
+                roleEnum = RoleName.valueOf(roleName.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid role: " + roleName);
+            }
+
+            Role role = roleRepository.findByName(roleEnum)
+                    .orElseThrow(() -> new BadRequestException("Role not found: " + roleName));
+
+            User newUser = new User();
+            newUser.setFullName(name != null ? name : "Google User");
+            newUser.setEmail(email);
+            newUser.setGoogleId(googleId);
+            newUser.setAvatar(pictureUrl);
+            newUser.setRole(role);
+            newUser.setAccountStatus(AccountStatus.ACTIVE);
+            newUser.setEmailVerified(true);
+
+            if (request.getPhone() != null && !request.getPhone().isBlank()) {
+                newUser.setPhone(request.getPhone().replaceAll("\\D", ""));
+            }
+            if (request.getAadhaarNumber() != null && !request.getAadhaarNumber().isBlank()) {
+                newUser.setAadhaarNumber(request.getAadhaarNumber());
+            }
+            if (request.getPanNumber() != null && !request.getPanNumber().isBlank()) {
+                newUser.setPanNumber(request.getPanNumber().toUpperCase());
+            }
+            if (request.getInstagramUsername() != null && !request.getInstagramUsername().isBlank()) {
+                newUser.setInstagramUsername(request.getInstagramUsername());
+            }
+            if (request.getWebsiteUrl() != null && !request.getWebsiteUrl().isBlank()) {
+                newUser.setWebsiteUrl(request.getWebsiteUrl());
+            }
+
+            if (roleEnum == RoleName.HOST || roleEnum == RoleName.PLANNER) {
+                newUser.setAdminApproved(false);
+                newUser.setKycVerified(false);
+                newUser.setAccountStatus(AccountStatus.PENDING_VERIFICATION);
+            } else {
+                newUser.setAdminApproved(true);
+            }
+
+            newUser = userRepository.save(newUser);
+
+            // No auto KYC record — host/planner will submit KYC manually later
+
+            // Block Host/Planner from immediate login (pending admin approval)
+            if (roleEnum == RoleName.HOST || roleEnum == RoleName.PLANNER) {
+                throw new BadRequestException(
+                        "PENDING_VERIFICATION:Your " + roleEnum.name().toLowerCase() + " account has been created! " +
+                        "It typically takes 7-8 hours to verify. You can log in once approved by admin."
+                );
+            }
+
+            newUser.setLastLoginAt(LocalDateTime.now());
+            newUser = userRepository.save(newUser);
+            String token = jwtService.generateToken(newUser);
+            return new AuthResponse(token, UserMapper.toResponse(newUser));
         }
 
         User user = userOpt.get();
@@ -271,15 +339,14 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        // Block other non-active accounts
+        // Block non-active accounts
         if (user.getAccountStatus() != AccountStatus.ACTIVE && !Boolean.TRUE.equals(user.getAdminApproved())) {
             throw new BadRequestException(
                     "Your account is not active. Current status: " + user.getAccountStatus().name()
             );
         }
 
-        user.setLastLoginDate(LocalDate.now());
-        user.setLastLoginTime(LocalTime.now());
+        user.setLastLoginAt(LocalDateTime.now());
         user = userRepository.save(user);
 
         // Generate JWT token (only for ACTIVE accounts — travelers)
@@ -290,7 +357,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public UserResponse getCurrentUser(Long userId) {
-        User user = userRepository.findByIdAndDeletedDateIsNull(userId)
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         return UserMapper.toResponse(user);
     }

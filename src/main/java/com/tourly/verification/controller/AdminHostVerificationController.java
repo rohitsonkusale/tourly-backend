@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import com.tourly.common.dto.ApiResponse;
 import com.tourly.verification.dto.request.AdminVerificationActionRequest;
 import com.tourly.verification.dto.response.HostVerificationResponse;
-import com.tourly.trip.enums.ApprovalStatus;
+import com.tourly.verification.enums.VerificationStatus;
 import com.tourly.verification.service.AdminHostVerificationService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,7 +51,7 @@ public class AdminHostVerificationController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     public ResponseEntity<ApiResponse<List<HostVerificationResponse>>> getVerificationsByStatus(
-            @RequestParam ApprovalStatus status) {
+            @RequestParam VerificationStatus status) {
         List<HostVerificationResponse> response = adminHostVerificationService.getVerificationsByStatus(status);
         return ResponseEntity.ok(ApiResponse.success("Host verifications fetched successfully", response));
     }
@@ -120,3 +120,4 @@ public class AdminHostVerificationController {
         return ResponseEntity.ok(ApiResponse.success("Host verification suspended successfully", response));
     }
 }
+

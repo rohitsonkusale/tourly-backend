@@ -9,6 +9,7 @@ public class GoogleAuthRequest {
 
     private String role; // e.g., "TRAVELER" or "HOST"
 
+    private String phone;
     private String aadhaarNumber;
     private String panNumber;
 
@@ -30,6 +31,14 @@ public class GoogleAuthRequest {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getAadhaarNumber() {

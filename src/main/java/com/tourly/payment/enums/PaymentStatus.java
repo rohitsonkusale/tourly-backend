@@ -1,17 +1,9 @@
-// package com.tourly.payment.enums;
-
-// public enum PaymentStatus {
-
-//     PENDING,
-//     SUCCESS,
-//     FAILED;
-// }
 package com.tourly.payment.enums;
 
 public enum PaymentStatus {
     CREATED,
-    CAPTURED,
+    AUTHORIZED,
+    PAID,
     FAILED,
-    REFUND_PENDING,
     REFUNDED
 }

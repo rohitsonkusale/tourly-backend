@@ -11,17 +11,18 @@ public class AuditLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "audit_log_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "performed_by", nullable = false)
     private User performedBy;
 
-    @Column(nullable = false)
+    @Column(name = "action", nullable = false, length = 255)
     private String action;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column(name = "category", nullable = false, length = 50)
     private AuditLogCategory category;
 
     @Column(name = "target_type", length = 100)
@@ -30,7 +31,7 @@ public class AuditLog {
     @Column(name = "target_id")
     private Long targetId;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "details", columnDefinition = "TEXT")
     private String details;
 
     @Column(name = "ip_address", length = 100)
@@ -40,88 +41,30 @@ public class AuditLog {
     private String deviceInfo;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
-    public AuditLog() {
-    }
+    public AuditLog() {}
 
-    public Long getId() {
-        return id;
-    }
+    @PrePersist
+    protected void onCreate() { this.createdAt = LocalDateTime.now(); }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public User getPerformedBy() {
-        return performedBy;
-    }
-
-    public void setPerformedBy(User performedBy) {
-        this.performedBy = performedBy;
-    }
-
-    public String getAction() {
-        return action;
-    }
-
-    public void setAction(String action) {
-        this.action = action;
-    }
-
-    public AuditLogCategory getCategory() {
-        return category;
-    }
-
-    public void setCategory(AuditLogCategory category) {
-        this.category = category;
-    }
-
-    public String getTargetType() {
-        return targetType;
-    }
-
-    public void setTargetType(String targetType) {
-        this.targetType = targetType;
-    }
-
-    public Long getTargetId() {
-        return targetId;
-    }
-
-    public void setTargetId(Long targetId) {
-        this.targetId = targetId;
-    }
-
-    public String getDetails() {
-        return details;
-    }
-
-    public void setDetails(String details) {
-        this.details = details;
-    }
-
-    public String getIpAddress() {
-        return ipAddress;
-    }
-
-    public void setIpAddress(String ipAddress) {
-        this.ipAddress = ipAddress;
-    }
-
-    public String getDeviceInfo() {
-        return deviceInfo;
-    }
-
-    public void setDeviceInfo(String deviceInfo) {
-        this.deviceInfo = deviceInfo;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public User getPerformedBy() { return performedBy; }
+    public void setPerformedBy(User performedBy) { this.performedBy = performedBy; }
+    public String getAction() { return action; }
+    public void setAction(String action) { this.action = action; }
+    public AuditLogCategory getCategory() { return category; }
+    public void setCategory(AuditLogCategory category) { this.category = category; }
+    public String getTargetType() { return targetType; }
+    public void setTargetType(String targetType) { this.targetType = targetType; }
+    public Long getTargetId() { return targetId; }
+    public void setTargetId(Long targetId) { this.targetId = targetId; }
+    public String getDetails() { return details; }
+    public void setDetails(String details) { this.details = details; }
+    public String getIpAddress() { return ipAddress; }
+    public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
+    public String getDeviceInfo() { return deviceInfo; }
+    public void setDeviceInfo(String deviceInfo) { this.deviceInfo = deviceInfo; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

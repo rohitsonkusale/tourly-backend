@@ -131,7 +131,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BadRequestException("Booking payment window has expired");
         }
 
-        if (booking.getPaymentStatus() == com.tourly.booking.enums.PaymentStatus.SUCCESS) {
+        if (booking.getPaymentStatus() == com.tourly.booking.enums.PaymentStatus.FULLY_PAID) {
             log.warn("Payment creation blocked: booking already paid. bookingId={}, userId={}",
                     booking.getId(), currentUser.getId());
             throw new BadRequestException("Booking is already paid");
@@ -145,16 +145,16 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BadRequestException("Invalid booking amount");
         }
 
-        // Check existing payment first (important for OneToOne design)
+        // Check existing payment first
         Payment existingPayment = paymentRepository
-                .findByBookingId(booking.getId())
+                .findFirstByBookingIdOrderByCreatedAtDesc(booking.getId())
                 .orElse(null);
 
         // If payment already exists
         if (existingPayment != null) {
 
             // Already paid
-            if (existingPayment.getStatus() == PaymentStatus.CAPTURED) {
+            if (existingPayment.getStatus() == PaymentStatus.PAID) {
                 log.warn("Payment creation blocked: payment already successful. bookingId={}, paymentId={}",
                         booking.getId(), existingPayment.getId());
                 throw new BadRequestException("Booking is already paid");
@@ -185,7 +185,7 @@ public class PaymentServiceImpl implements PaymentService {
 
             // =========================================
             // CASE 1: Retry after FAILED payment
-            // Reuse same payment row (important for OneToOne design)
+            // Create new payment with incremented attempt number
             // =========================================
             if (existingPayment != null && existingPayment.getStatus() == PaymentStatus.FAILED) {
                 payment = existingPayment;
@@ -194,12 +194,7 @@ public class PaymentServiceImpl implements PaymentService {
                 payment.setRazorpayPaymentId(null);
                 payment.setStatus(PaymentStatus.CREATED);
                 payment.setCreatedAt(LocalDateTime.now());
-
-                // Reset refund-related fields on retry
-                payment.setRazorpayRefundId(null);
-                payment.setRefundAmount(null);
-                payment.setRefundProcessedAt(null);
-                payment.setRefundReason(null);
+                payment.setAttemptNumber(existingPayment.getAttemptNumber() + 1);
 
                 log.info("Retry payment order created for failed payment. bookingId={}, paymentId={}, razorpayOrderId={}",
                         booking.getId(), payment.getId(), order.get("id").toString());
@@ -250,7 +245,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
 
         // Idempotency protection
-        if (payment.getStatus() == PaymentStatus.CAPTURED) {
+        if (payment.getStatus() == PaymentStatus.PAID) {
             log.info("Payment verification skipped (already successful). paymentId={}, bookingId={}, razorpayOrderId={}",
                     payment.getId(),
                     payment.getBooking() != null ? payment.getBooking().getId() : null,
@@ -284,7 +279,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BadRequestException("Booking payment window has expired");
         }
 
-        if (booking.getPaymentStatus() == com.tourly.booking.enums.PaymentStatus.SUCCESS) {
+        if (booking.getPaymentStatus() == com.tourly.booking.enums.PaymentStatus.FULLY_PAID) {
             log.info("Payment verification skipped: booking already marked paid. bookingId={}, paymentId={}",
                     booking.getId(), payment.getId());
             return;
@@ -308,9 +303,9 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         payment.setRazorpayPaymentId(request.getRazorpayPaymentId());
-        payment.setStatus(PaymentStatus.CAPTURED);
+        payment.setStatus(PaymentStatus.PAID);
 
-        booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.SUCCESS);
+        booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.FULLY_PAID);
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setUpdatedAt(LocalDateTime.now());
 

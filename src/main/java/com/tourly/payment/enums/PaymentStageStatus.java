@@ -3,5 +3,7 @@ package com.tourly.payment.enums;
 public enum PaymentStageStatus {
     PENDING,
     PAID,
-    CANCELLED;
+    OVERDUE,
+    CANCELLED,
+    WAIVED
 }

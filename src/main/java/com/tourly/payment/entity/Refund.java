@@ -14,6 +14,7 @@ public class Refund {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "refund_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -32,13 +33,13 @@ public class Refund {
     @JoinColumn(name = "processed_by")
     private User processedBy;
 
-    @Column(name = "razorpay_refund_id")
+    @Column(name = "razorpay_refund_id", length = 255)
     private String razorpayRefundId;
 
-    @Column(name = "original_amount", nullable = false)
+    @Column(name = "original_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal originalAmount;
 
-    @Column(name = "refund_amount", nullable = false)
+    @Column(name = "refund_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal refundAmount;
 
     @Enumerated(EnumType.STRING)
@@ -46,9 +47,10 @@ public class Refund {
     private RefundType refundType;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column(name = "status", nullable = false, length = 50)
     private RefundStatus status;
 
+    @Column(name = "reason", length = 255)
     private String reason;
 
     @Column(name = "admin_notes", length = 500)
@@ -61,128 +63,40 @@ public class Refund {
     private LocalDateTime processedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
-    public Refund() {
-    }
+    public Refund() {}
 
-    public Long getId() {
-        return id;
-    }
+    @PrePersist
+    protected void onCreate() { this.createdAt = LocalDateTime.now(); }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Booking getBooking() {
-        return booking;
-    }
-
-    public void setBooking(Booking booking) {
-        this.booking = booking;
-    }
-
-    public Payment getPayment() {
-        return payment;
-    }
-
-    public void setPayment(Payment payment) {
-        this.payment = payment;
-    }
-
-    public User getRequestedBy() {
-        return requestedBy;
-    }
-
-    public void setRequestedBy(User requestedBy) {
-        this.requestedBy = requestedBy;
-    }
-
-    public User getProcessedBy() {
-        return processedBy;
-    }
-
-    public void setProcessedBy(User processedBy) {
-        this.processedBy = processedBy;
-    }
-
-    public String getRazorpayRefundId() {
-        return razorpayRefundId;
-    }
-
-    public void setRazorpayRefundId(String razorpayRefundId) {
-        this.razorpayRefundId = razorpayRefundId;
-    }
-
-    public BigDecimal getOriginalAmount() {
-        return originalAmount;
-    }
-
-    public void setOriginalAmount(BigDecimal originalAmount) {
-        this.originalAmount = originalAmount;
-    }
-
-    public BigDecimal getRefundAmount() {
-        return refundAmount;
-    }
-
-    public void setRefundAmount(BigDecimal refundAmount) {
-        this.refundAmount = refundAmount;
-    }
-
-    public RefundType getRefundType() {
-        return refundType;
-    }
-
-    public void setRefundType(RefundType refundType) {
-        this.refundType = refundType;
-    }
-
-    public RefundStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(RefundStatus status) {
-        this.status = status;
-    }
-
-    public String getReason() {
-        return reason;
-    }
-
-    public void setReason(String reason) {
-        this.reason = reason;
-    }
-
-    public String getAdminNotes() {
-        return adminNotes;
-    }
-
-    public void setAdminNotes(String adminNotes) {
-        this.adminNotes = adminNotes;
-    }
-
-    public LocalDateTime getRequestedAt() {
-        return requestedAt;
-    }
-
-    public void setRequestedAt(LocalDateTime requestedAt) {
-        this.requestedAt = requestedAt;
-    }
-
-    public LocalDateTime getProcessedAt() {
-        return processedAt;
-    }
-
-    public void setProcessedAt(LocalDateTime processedAt) {
-        this.processedAt = processedAt;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Booking getBooking() { return booking; }
+    public void setBooking(Booking booking) { this.booking = booking; }
+    public Payment getPayment() { return payment; }
+    public void setPayment(Payment payment) { this.payment = payment; }
+    public User getRequestedBy() { return requestedBy; }
+    public void setRequestedBy(User requestedBy) { this.requestedBy = requestedBy; }
+    public User getProcessedBy() { return processedBy; }
+    public void setProcessedBy(User processedBy) { this.processedBy = processedBy; }
+    public String getRazorpayRefundId() { return razorpayRefundId; }
+    public void setRazorpayRefundId(String razorpayRefundId) { this.razorpayRefundId = razorpayRefundId; }
+    public BigDecimal getOriginalAmount() { return originalAmount; }
+    public void setOriginalAmount(BigDecimal originalAmount) { this.originalAmount = originalAmount; }
+    public BigDecimal getRefundAmount() { return refundAmount; }
+    public void setRefundAmount(BigDecimal refundAmount) { this.refundAmount = refundAmount; }
+    public RefundType getRefundType() { return refundType; }
+    public void setRefundType(RefundType refundType) { this.refundType = refundType; }
+    public RefundStatus getStatus() { return status; }
+    public void setStatus(RefundStatus status) { this.status = status; }
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
+    public String getAdminNotes() { return adminNotes; }
+    public void setAdminNotes(String adminNotes) { this.adminNotes = adminNotes; }
+    public LocalDateTime getRequestedAt() { return requestedAt; }
+    public void setRequestedAt(LocalDateTime requestedAt) { this.requestedAt = requestedAt; }
+    public LocalDateTime getProcessedAt() { return processedAt; }
+    public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

@@ -13,7 +13,7 @@ import com.tourly.auth.repository.UserRepository;
 import com.tourly.common.entity.HostVerification;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
-import com.tourly.trip.enums.ApprovalStatus;
+import com.tourly.verification.enums.VerificationStatus;
 import com.tourly.verification.dto.request.AdminVerificationActionRequest;
 import com.tourly.verification.dto.response.HostVerificationResponse;
 import com.tourly.verification.repository.HostVerificationRepository;
@@ -35,7 +35,7 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     @Override
     @Transactional(readOnly = true)
     public List<HostVerificationResponse> getPendingVerifications() {
-        return hostVerificationRepository.findByStatusWithUser(ApprovalStatus.PENDING)
+        return hostVerificationRepository.findByStatusWithUser(VerificationStatus.PENDING)
                 .stream()
                 .filter(v -> v.getAadhaarDocumentUrl() != null
                         || v.getPanDocumentUrl() != null
@@ -46,7 +46,7 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
 
     @Override
     @Transactional(readOnly = true)
-    public List<HostVerificationResponse> getVerificationsByStatus(ApprovalStatus status) {
+    public List<HostVerificationResponse> getVerificationsByStatus(VerificationStatus status) {
         return hostVerificationRepository.findByStatusWithUser(status)
                 .stream()
                 .map(this::mapToResponse)
@@ -66,15 +66,15 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         HostVerification verification = getVerificationOrThrow(verificationId);
 
         // Allow approve on PENDING or PENDING_REVIEW
-        if (verification.getVerificationStatus() != ApprovalStatus.PENDING
-                && verification.getVerificationStatus() != ApprovalStatus.PENDING_REVIEW) {
+        if (verification.getVerificationStatus() != VerificationStatus.PENDING
+                && verification.getVerificationStatus() != VerificationStatus.PENDING_REVIEW) {
             throw new BadRequestException("Can only approve PENDING or PENDING_REVIEW verifications");
         }
 
         User adminUser = getCurrentAdmin();
         User applicant = verification.getUser();
 
-        verification.setVerificationStatus(ApprovalStatus.APPROVED);
+        verification.setVerificationStatus(VerificationStatus.APPROVED);
         verification.setRejectionReason(null);
         verification.setReviewedAt(LocalDateTime.now());
         verification.setReviewedBy(adminUser);
@@ -96,8 +96,8 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         HostVerification verification = getVerificationOrThrow(verificationId);
 
         // Allow reject on PENDING or PENDING_REVIEW
-        if (verification.getVerificationStatus() != ApprovalStatus.PENDING
-                && verification.getVerificationStatus() != ApprovalStatus.PENDING_REVIEW) {
+        if (verification.getVerificationStatus() != VerificationStatus.PENDING
+                && verification.getVerificationStatus() != VerificationStatus.PENDING_REVIEW) {
             throw new BadRequestException("Can only reject PENDING or PENDING_REVIEW verifications");
         }
 
@@ -108,7 +108,7 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         User adminUser = getCurrentAdmin();
         User applicant = verification.getUser();
 
-        verification.setVerificationStatus(ApprovalStatus.REJECTED);
+        verification.setVerificationStatus(VerificationStatus.REJECTED);
         verification.setRejectionReason(request.getReason().trim());
         verification.setReviewedAt(LocalDateTime.now());
         verification.setReviewedBy(adminUser);
@@ -129,8 +129,8 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         HostVerification verification = getVerificationOrThrow(verificationId);
 
         // Allow on PENDING or PENDING_REVIEW (admin can update their message)
-        if (verification.getVerificationStatus() != ApprovalStatus.PENDING
-                && verification.getVerificationStatus() != ApprovalStatus.PENDING_REVIEW) {
+        if (verification.getVerificationStatus() != VerificationStatus.PENDING
+                && verification.getVerificationStatus() != VerificationStatus.PENDING_REVIEW) {
             throw new BadRequestException("Can only request changes on PENDING or PENDING_REVIEW verifications");
         }
 
@@ -141,7 +141,7 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         User adminUser = getCurrentAdmin();
         User applicant = verification.getUser();
 
-        verification.setVerificationStatus(ApprovalStatus.PENDING_REVIEW);
+        verification.setVerificationStatus(VerificationStatus.PENDING_REVIEW);
         verification.setRejectionReason(request.getReason().trim());
         verification.setReviewedAt(LocalDateTime.now());
         verification.setReviewedBy(adminUser);
@@ -158,7 +158,7 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
     public HostVerificationResponse suspendVerification(Long verificationId, AdminVerificationActionRequest request) {
         HostVerification verification = getVerificationOrThrow(verificationId);
 
-        if (verification.getVerificationStatus() != ApprovalStatus.APPROVED) {
+        if (verification.getVerificationStatus() != VerificationStatus.APPROVED) {
             throw new BadRequestException("Only approved verification requests can be suspended");
         }
 
@@ -169,8 +169,8 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         User adminUser = getCurrentAdmin();
         User applicant = verification.getUser();
 
-        // ApprovalStatus doesn't have SUSPENDED, so we use REJECTED to signify revoked status
-        verification.setVerificationStatus(ApprovalStatus.REJECTED);
+        // VerificationStatus doesn't have SUSPENDED, so we use REJECTED to signify revoked status
+        verification.setVerificationStatus(VerificationStatus.REJECTED);
         verification.setRejectionReason(request.getReason().trim());
         verification.setReviewedAt(LocalDateTime.now());
         verification.setReviewedBy(adminUser);
@@ -253,3 +253,4 @@ public class AdminHostVerificationServiceImpl implements AdminHostVerificationSe
         return pan.substring(0, 3) + "XXXXX" + pan.substring(8);
     }
 }
+

@@ -12,6 +12,7 @@ public class PlatformSetting {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "platform_setting_id")
     private Long id;
 
     @Column(name = "setting_key", nullable = false, unique = true, length = 100)

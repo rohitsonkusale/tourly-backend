@@ -126,18 +126,18 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         Payment payment = paymentOptional.get();
 
         // Idempotency: if already CAPTURED, ignore duplicate webhook
-        if (payment.getStatus() == PaymentStatus.CAPTURED) {
+        if (payment.getStatus() == PaymentStatus.PAID) {
             log.info("Payment already marked CAPTURED for orderId={}, skipping duplicate webhook", razorpayOrderId);
             return;
         }
 
         payment.setRazorpayPaymentId(razorpayPaymentId);
-        payment.setStatus(PaymentStatus.CAPTURED);
+        payment.setStatus(PaymentStatus.PAID);
         paymentRepository.save(payment);
 
         var booking = payment.getBooking();
         if (booking != null) {
-            booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.PAID);
+            booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.PARTIALLY_PAID);
             booking.setStatus(com.tourly.booking.enums.BookingStatus.CONFIRMED);
             bookingRepository.save(booking);
 
@@ -172,7 +172,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         Payment payment = paymentOptional.get();
 
         // If already CAPTURED, never overwrite it with FAILED
-        if (payment.getStatus() == PaymentStatus.CAPTURED) {
+        if (payment.getStatus() == PaymentStatus.PAID) {
             log.info("Ignoring payment.failed because payment already CAPTURED for orderId={}", razorpayOrderId);
             return;
         }
@@ -183,10 +183,11 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
         var booking = payment.getBooking();
         if (booking != null) {
-            booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.FAILED);
+            booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.PENDING);
             bookingRepository.save(booking);
         }
 
         log.info("Payment marked FAILED via webhook for paymentId={}", payment.getId());
     }
 }
+

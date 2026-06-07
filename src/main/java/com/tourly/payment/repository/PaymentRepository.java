@@ -1,5 +1,6 @@
 package com.tourly.payment.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,18 +13,20 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByRazorpayOrderId(String orderId);
 
-    Optional<Payment> findByBookingId(Long bookingId);
+    List<Payment> findByBookingId(Long bookingId);
 
-    Optional<Payment> findByBooking(Booking booking);
+    Optional<Payment> findFirstByBookingIdOrderByCreatedAtDesc(Long bookingId);
+
+    List<Payment> findByBooking(Booking booking);
 
     Optional<Payment> findByRazorpayPaymentId(String razorpayPaymentId);
 
-    boolean existsByRazorpayRefundId(String razorpayRefundId);
+    List<Payment> findByBookingIdAndStatus(Long bookingId, PaymentStatus status);
 
     // =====================================
     // ADMIN DASHBOARD STATS
     // =====================================
     long countByStatus(PaymentStatus status);
 
-    long countByStatusIn(java.util.List<PaymentStatus> statuses);
+    long countByStatusIn(List<PaymentStatus> statuses);
 }

@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.tourly.auth.entity.AccountStatus;
@@ -25,28 +26,26 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // =========================
     // Admin User Management
     // =========================
-    Page<User> findByDeletedDateIsNull(Pageable pageable);
+    Page<User> findByDeletedAtIsNull(Pageable pageable);
 
-    Page<User> findByDeletedDateIsNotNull(Pageable pageable);
+    Page<User> findByDeletedAtIsNotNull(Pageable pageable);
 
-    Page<User> findByAccountStatusAndDeletedDateIsNull(AccountStatus accountStatus, Pageable pageable);
+    Page<User> findByAccountStatusAndDeletedAtIsNull(AccountStatus accountStatus, Pageable pageable);
 
-    Page<User> findByRole_NameAndDeletedDateIsNull(RoleName roleName, Pageable pageable);
+    Page<User> findByRole_NameAndDeletedAtIsNull(RoleName roleName, Pageable pageable);
 
-    Optional<User> findByIdAndDeletedDateIsNull(Long id);
+    Optional<User> findByIdAndDeletedAtIsNull(Long id);
 
     // =========================
     // Pending Approval Queries
     // =========================
-    // HOST = role_id 3, PLANNER = role_id 2
-    // Mirrors: SELECT * FROM users WHERE admin_approval_flag = 'N' AND role_id = ?
-    @Query(value = "SELECT * FROM users WHERE role_id = :roleId AND (admin_approval_flag = 'N' OR admin_approval_flag IS NULL) AND deleted_date IS NULL", nativeQuery = true)
-    List<User> findPendingApprovalsByRoleId(int roleId);
+    @Query(value = "SELECT * FROM users WHERE role_id = :roleId AND (admin_approval_flag = 'N' OR admin_approval_flag IS NULL) AND deleted_at IS NULL", nativeQuery = true)
+    List<User> findPendingApprovalsByRoleId(@Param("roleId") int roleId);
 
     // =========================
     // Admin Dashboard Stats
     // =========================
-    long countByRole_NameAndAccountStatusAndDeletedDateIsNull(RoleName roleName, AccountStatus accountStatus);
+    long countByRole_NameAndAccountStatusAndDeletedAtIsNull(RoleName roleName, AccountStatus accountStatus);
 
     long countByAccountStatus(AccountStatus accountStatus);
 }

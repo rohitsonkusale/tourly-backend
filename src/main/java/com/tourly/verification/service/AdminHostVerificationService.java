@@ -3,13 +3,13 @@ package com.tourly.verification.service;
 import java.util.List;
 import com.tourly.verification.dto.request.AdminVerificationActionRequest;
 import com.tourly.verification.dto.response.HostVerificationResponse;
-import com.tourly.trip.enums.ApprovalStatus;
+import com.tourly.verification.enums.VerificationStatus;
 
 public interface AdminHostVerificationService {
 
     List<HostVerificationResponse> getPendingVerifications();
 
-    List<HostVerificationResponse> getVerificationsByStatus(ApprovalStatus status);
+    List<HostVerificationResponse> getVerificationsByStatus(VerificationStatus status);
 
     HostVerificationResponse getVerificationById(Long verificationId);
 
@@ -21,3 +21,4 @@ public interface AdminHostVerificationService {
 
     HostVerificationResponse suspendVerification(Long verificationId, AdminVerificationActionRequest request);
 }
+

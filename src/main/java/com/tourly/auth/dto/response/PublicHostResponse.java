@@ -1,7 +1,7 @@
 package com.tourly.auth.dto.response;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -17,7 +17,7 @@ public class PublicHostResponse {
     private String instagramUsername;
     private String websiteUrl;
     private String roleName;
-    private LocalDate createdDate;
+    private LocalDateTime createdDate;
 
     // Stats derived from trips and bookings
     private long totalTrips;
@@ -103,8 +103,8 @@ public class PublicHostResponse {
     public String getRoleName() { return roleName; }
     public void setRoleName(String roleName) { this.roleName = roleName; }
 
-    public LocalDate getCreatedDate() { return createdDate; }
-    public void setCreatedDate(LocalDate createdDate) { this.createdDate = createdDate; }
+    public LocalDateTime getCreatedDate() { return createdDate; }
+    public void setCreatedDate(LocalDateTime createdDate) { this.createdDate = createdDate; }
 
     public long getTotalTrips() { return totalTrips; }
     public void setTotalTrips(long totalTrips) { this.totalTrips = totalTrips; }

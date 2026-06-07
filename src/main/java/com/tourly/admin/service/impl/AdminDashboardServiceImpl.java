@@ -85,11 +85,11 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         // 2. User Counts
         // ===========================
         response.setActiveHosts(
-                userRepository.countByRole_NameAndAccountStatusAndDeletedDateIsNull(RoleName.HOST, AccountStatus.ACTIVE));
+                userRepository.countByRole_NameAndAccountStatusAndDeletedAtIsNull(RoleName.HOST, AccountStatus.ACTIVE));
         response.setActivePlanners(
-                userRepository.countByRole_NameAndAccountStatusAndDeletedDateIsNull(RoleName.PLANNER, AccountStatus.ACTIVE));
+                userRepository.countByRole_NameAndAccountStatusAndDeletedAtIsNull(RoleName.PLANNER, AccountStatus.ACTIVE));
         response.setActiveTravellers(
-                userRepository.countByRole_NameAndAccountStatusAndDeletedDateIsNull(RoleName.TRAVELER, AccountStatus.ACTIVE));
+                userRepository.countByRole_NameAndAccountStatusAndDeletedAtIsNull(RoleName.TRAVELER, AccountStatus.ACTIVE));
 
         // ===========================
         // 3. Booking / Trip Stats
@@ -102,7 +102,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         // Refund requests = payments with REFUNDED or REFUND_PENDING status
         response.setRefundRequests(
                 paymentRepository.countByStatusIn(
-                        Arrays.asList(PaymentStatus.REFUNDED, PaymentStatus.REFUND_PENDING)));
+                        Arrays.asList(PaymentStatus.REFUNDED, PaymentStatus.REFUNDED)));
 
         // Open tickets = OPEN + IN_PROGRESS
         response.setOpenTickets(
@@ -181,3 +181,4 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         return response;
     }
 }
+

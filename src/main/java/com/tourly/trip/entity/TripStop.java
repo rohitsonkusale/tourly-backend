@@ -8,6 +8,7 @@ public class TripStop {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "trip_stop_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -24,13 +25,10 @@ public class TripStop {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-
     public Trip getTrip() { return trip; }
     public void setTrip(Trip trip) { this.trip = trip; }
-
     public String getStopName() { return stopName; }
     public void setStopName(String stopName) { this.stopName = stopName; }
-
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
 }

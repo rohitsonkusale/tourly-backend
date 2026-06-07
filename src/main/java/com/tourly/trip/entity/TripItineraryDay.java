@@ -8,6 +8,7 @@ public class TripItineraryDay {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "trip_itinerary_day_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -17,83 +18,37 @@ public class TripItineraryDay {
     @Column(name = "day_number", nullable = false)
     private Integer dayNumber;
 
-    @Column(nullable = false)
+    @Column(name = "title", nullable = false, length = 255)
     private String title;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "stay", length = 255)
     private String stay;
 
+    @Column(name = "meals", length = 255)
     private String meals;
 
     @Column(name = "sort_order")
     private Integer sortOrder;
 
-    public TripItineraryDay() {
-    }
+    public TripItineraryDay() {}
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Trip getTrip() {
-        return trip;
-    }
-
-    public void setTrip(Trip trip) {
-        this.trip = trip;
-    }
-
-    public Integer getDayNumber() {
-        return dayNumber;
-    }
-
-    public void setDayNumber(Integer dayNumber) {
-        this.dayNumber = dayNumber;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getStay() {
-        return stay;
-    }
-
-    public void setStay(String stay) {
-        this.stay = stay;
-    }
-
-    public String getMeals() {
-        return meals;
-    }
-
-    public void setMeals(String meals) {
-        this.meals = meals;
-    }
-
-    public Integer getSortOrder() {
-        return sortOrder;
-    }
-
-    public void setSortOrder(Integer sortOrder) {
-        this.sortOrder = sortOrder;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Trip getTrip() { return trip; }
+    public void setTrip(Trip trip) { this.trip = trip; }
+    public Integer getDayNumber() { return dayNumber; }
+    public void setDayNumber(Integer dayNumber) { this.dayNumber = dayNumber; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getStay() { return stay; }
+    public void setStay(String stay) { this.stay = stay; }
+    public String getMeals() { return meals; }
+    public void setMeals(String meals) { this.meals = meals; }
+    public Integer getSortOrder() { return sortOrder; }
+    public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
 }

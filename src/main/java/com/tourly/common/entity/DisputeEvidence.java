@@ -10,6 +10,7 @@ public class DisputeEvidence {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "dispute_evidence_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -60,13 +60,13 @@ public class BookingExpiryScheduler {
 
             // Mark booking expired/cancelled
             booking.setStatus(BookingStatus.CANCELLED);
-            booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.FAILED);
+            booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.PENDING);
             booking.setUpdatedAt(LocalDateTime.now());
 
             bookingRepository.save(booking);
 
             // Also mark payment failed if still CREATED
-            Payment payment = paymentRepository.findByBookingId(booking.getId()).orElse(null);
+            Payment payment = paymentRepository.findFirstByBookingIdOrderByCreatedAtDesc(booking.getId()).orElse(null);
 
             if (payment != null && payment.getStatus() == PaymentStatus.CREATED) {
                 payment.setStatus(PaymentStatus.FAILED);

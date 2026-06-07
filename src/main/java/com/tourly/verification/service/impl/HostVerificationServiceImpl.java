@@ -13,7 +13,7 @@ import com.tourly.auth.repository.UserRepository;
 import com.tourly.common.entity.HostVerification;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
-import com.tourly.trip.enums.ApprovalStatus;
+import com.tourly.verification.enums.VerificationStatus;
 import com.tourly.verification.dto.request.HostVerificationRequest;
 import com.tourly.verification.dto.response.HostVerificationResponse;
 import com.tourly.verification.repository.HostVerificationRepository;
@@ -62,7 +62,7 @@ public class HostVerificationServiceImpl implements HostVerificationService {
         verification.setPanDocumentUrl(request.getPanDocumentUrl() != null ? request.getPanDocumentUrl().trim() : null);
         verification.setSelfieUrl(request.getSelfieUrl() != null ? request.getSelfieUrl().trim() : null);
 
-        verification.setVerificationStatus(ApprovalStatus.PENDING);
+        verification.setVerificationStatus(VerificationStatus.PENDING);
         verification.setRejectionReason(null);
         verification.setSubmittedAt(LocalDateTime.now());
         verification.setReviewedAt(null);
@@ -103,21 +103,21 @@ public class HostVerificationServiceImpl implements HostVerificationService {
     }
 
     private void validateReapplyAllowed(HostVerification verification) {
-        ApprovalStatus status = verification.getVerificationStatus();
+        VerificationStatus status = verification.getVerificationStatus();
 
         // Allow resubmission if documents were never uploaded (incomplete submission)
         boolean hasDocuments = verification.getAadhaarDocumentUrl() != null
                 || verification.getPanDocumentUrl() != null
                 || verification.getSelfieUrl() != null;
 
-        if (status == ApprovalStatus.PENDING && !hasDocuments) {
+        if (status == VerificationStatus.PENDING && !hasDocuments) {
             // Incomplete record — allow overwrite
             return;
         }
-        if (status == ApprovalStatus.PENDING) {
+        if (status == VerificationStatus.PENDING) {
             throw new BadRequestException("Your verification is already pending review. Please wait for admin decision.");
         }
-        if (status == ApprovalStatus.APPROVED) {
+        if (status == VerificationStatus.APPROVED) {
             throw new BadRequestException("Your verification is already approved.");
         }
         // REJECTED and PENDING_REVIEW are allowed to resubmit
@@ -156,3 +156,4 @@ public class HostVerificationServiceImpl implements HostVerificationService {
         return pan.substring(0, 3) + "XXXXX" + pan.substring(8);
     }
 }
+

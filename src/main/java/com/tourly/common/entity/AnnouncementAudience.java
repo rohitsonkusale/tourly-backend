@@ -9,6 +9,7 @@ public class AnnouncementAudience {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "announcement_audience_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

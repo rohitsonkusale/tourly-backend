@@ -12,6 +12,7 @@ public class CouponUsage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "coupon_usage_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -9,19 +9,20 @@ public class TripPriceBreakdown {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "trip_price_breakdown_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "trip_id", nullable = false)
     private Trip trip;
 
-    @Column(nullable = false, length = 255)
+    @Column(name = "category", nullable = false, length = 255)
     private String category;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    @Column(length = 500)
+    @Column(name = "description", length = 500)
     private String description;
 
     @Column(name = "sort_order", nullable = false)
@@ -31,19 +32,14 @@ public class TripPriceBreakdown {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-
     public Trip getTrip() { return trip; }
     public void setTrip(Trip trip) { this.trip = trip; }
-
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
-
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
-
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
 }

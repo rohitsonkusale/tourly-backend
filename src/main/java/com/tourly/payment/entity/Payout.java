@@ -14,6 +14,7 @@ public class Payout {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "payout_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -32,30 +33,30 @@ public class Payout {
     @Column(name = "payee_type", nullable = false, length = 50)
     private PayeeType payeeType;
 
-    @Column(name = "gross_amount", nullable = false)
+    @Column(name = "gross_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal grossAmount;
 
-    @Column(name = "commission_deducted", nullable = false)
+    @Column(name = "commission_deducted", nullable = false, precision = 12, scale = 2)
     private BigDecimal commissionDeducted;
 
-    @Column(name = "tds_deducted")
+    @Column(name = "tds_deducted", precision = 12, scale = 2)
     private BigDecimal tdsDeducted = BigDecimal.ZERO;
 
-    @Column(name = "net_amount", nullable = false)
+    @Column(name = "net_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal netAmount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column(name = "status", nullable = false, length = 50)
     private PayoutStatus status;
 
-    @Column(name = "razorpay_transfer_id")
+    @Column(name = "razorpay_transfer_id", length = 255)
     private String razorpayTransferId;
 
-    @Column(name = "utr_number")
+    @Column(name = "utr_number", length = 255)
     private String utrNumber;
 
     @Column(name = "requested_at", nullable = false)
-    private LocalDateTime requestedAt = LocalDateTime.now();
+    private LocalDateTime requestedAt;
 
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
@@ -63,126 +64,39 @@ public class Payout {
     @Column(name = "released_at")
     private LocalDateTime releasedAt;
 
-    public Payout() {
-    }
+    public Payout() {}
 
-    public Long getId() {
-        return id;
-    }
+    @PrePersist
+    protected void onCreate() { if (this.requestedAt == null) this.requestedAt = LocalDateTime.now(); }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Booking getBooking() {
-        return booking;
-    }
-
-    public void setBooking(Booking booking) {
-        this.booking = booking;
-    }
-
-    public User getPayee() {
-        return payee;
-    }
-
-    public void setPayee(User payee) {
-        this.payee = payee;
-    }
-
-    public BankAccount getBankAccount() {
-        return bankAccount;
-    }
-
-    public void setBankAccount(BankAccount bankAccount) {
-        this.bankAccount = bankAccount;
-    }
-
-    public PayeeType getPayeeType() {
-        return payeeType;
-    }
-
-    public void setPayeeType(PayeeType payeeType) {
-        this.payeeType = payeeType;
-    }
-
-    public BigDecimal getGrossAmount() {
-        return grossAmount;
-    }
-
-    public void setGrossAmount(BigDecimal grossAmount) {
-        this.grossAmount = grossAmount;
-    }
-
-    public BigDecimal getCommissionDeducted() {
-        return commissionDeducted;
-    }
-
-    public void setCommissionDeducted(BigDecimal commissionDeducted) {
-        this.commissionDeducted = commissionDeducted;
-    }
-
-    public BigDecimal getTdsDeducted() {
-        return tdsDeducted;
-    }
-
-    public void setTdsDeducted(BigDecimal tdsDeducted) {
-        this.tdsDeducted = tdsDeducted;
-    }
-
-    public BigDecimal getNetAmount() {
-        return netAmount;
-    }
-
-    public void setNetAmount(BigDecimal netAmount) {
-        this.netAmount = netAmount;
-    }
-
-    public PayoutStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(PayoutStatus status) {
-        this.status = status;
-    }
-
-    public String getRazorpayTransferId() {
-        return razorpayTransferId;
-    }
-
-    public void setRazorpayTransferId(String razorpayTransferId) {
-        this.razorpayTransferId = razorpayTransferId;
-    }
-
-    public String getUtrNumber() {
-        return utrNumber;
-    }
-
-    public void setUtrNumber(String utrNumber) {
-        this.utrNumber = utrNumber;
-    }
-
-    public LocalDateTime getRequestedAt() {
-        return requestedAt;
-    }
-
-    public void setRequestedAt(LocalDateTime requestedAt) {
-        this.requestedAt = requestedAt;
-    }
-
-    public LocalDateTime getProcessedAt() {
-        return processedAt;
-    }
-
-    public void setProcessedAt(LocalDateTime processedAt) {
-        this.processedAt = processedAt;
-    }
-
-    public LocalDateTime getReleasedAt() {
-        return releasedAt;
-    }
-
-    public void setReleasedAt(LocalDateTime releasedAt) {
-        this.releasedAt = releasedAt;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Booking getBooking() { return booking; }
+    public void setBooking(Booking booking) { this.booking = booking; }
+    public User getPayee() { return payee; }
+    public void setPayee(User payee) { this.payee = payee; }
+    public BankAccount getBankAccount() { return bankAccount; }
+    public void setBankAccount(BankAccount bankAccount) { this.bankAccount = bankAccount; }
+    public PayeeType getPayeeType() { return payeeType; }
+    public void setPayeeType(PayeeType payeeType) { this.payeeType = payeeType; }
+    public BigDecimal getGrossAmount() { return grossAmount; }
+    public void setGrossAmount(BigDecimal grossAmount) { this.grossAmount = grossAmount; }
+    public BigDecimal getCommissionDeducted() { return commissionDeducted; }
+    public void setCommissionDeducted(BigDecimal commissionDeducted) { this.commissionDeducted = commissionDeducted; }
+    public BigDecimal getTdsDeducted() { return tdsDeducted; }
+    public void setTdsDeducted(BigDecimal tdsDeducted) { this.tdsDeducted = tdsDeducted; }
+    public BigDecimal getNetAmount() { return netAmount; }
+    public void setNetAmount(BigDecimal netAmount) { this.netAmount = netAmount; }
+    public PayoutStatus getStatus() { return status; }
+    public void setStatus(PayoutStatus status) { this.status = status; }
+    public String getRazorpayTransferId() { return razorpayTransferId; }
+    public void setRazorpayTransferId(String razorpayTransferId) { this.razorpayTransferId = razorpayTransferId; }
+    public String getUtrNumber() { return utrNumber; }
+    public void setUtrNumber(String utrNumber) { this.utrNumber = utrNumber; }
+    public LocalDateTime getRequestedAt() { return requestedAt; }
+    public void setRequestedAt(LocalDateTime requestedAt) { this.requestedAt = requestedAt; }
+    public LocalDateTime getProcessedAt() { return processedAt; }
+    public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
+    public LocalDateTime getReleasedAt() { return releasedAt; }
+    public void setReleasedAt(LocalDateTime releasedAt) { this.releasedAt = releasedAt; }
 }

@@ -1,7 +1,7 @@
 package com.tourly.verification.dto.response;
 
 import java.time.LocalDateTime;
-import com.tourly.trip.enums.ApprovalStatus;
+import com.tourly.verification.enums.VerificationStatus;
 
 public class HostVerificationResponse {
 
@@ -19,7 +19,7 @@ public class HostVerificationResponse {
     private String panDocumentUrl;
     private String selfieUrl;
 
-    private ApprovalStatus verificationStatus;
+    private VerificationStatus verificationStatus;
     private String rejectionReason;
 
     private LocalDateTime submittedAt;
@@ -120,11 +120,11 @@ public class HostVerificationResponse {
         this.selfieUrl = selfieUrl;
     }
 
-    public ApprovalStatus getVerificationStatus() {
+    public VerificationStatus getVerificationStatus() {
         return verificationStatus;
     }
 
-    public void setVerificationStatus(ApprovalStatus verificationStatus) {
+    public void setVerificationStatus(VerificationStatus verificationStatus) {
         this.verificationStatus = verificationStatus;
     }
 
@@ -176,3 +176,4 @@ public class HostVerificationResponse {
         this.updatedAt = updatedAt;
     }
 }
+

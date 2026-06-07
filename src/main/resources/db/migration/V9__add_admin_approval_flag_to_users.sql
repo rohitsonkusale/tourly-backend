@@ -1,1 +1,0 @@
-ALTER TABLE users ADD COLUMN admin_approval_flag BOOLEAN DEFAULT FALSE;

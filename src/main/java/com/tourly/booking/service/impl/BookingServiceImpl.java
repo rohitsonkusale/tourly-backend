@@ -248,10 +248,11 @@ public class BookingServiceImpl implements BookingService {
 
         booking.setStatus(BookingStatus.CANCELLED);
 
-        if (booking.getPaymentStatus() == PaymentStatus.PAID) {
+        if (booking.getPaymentStatus() == PaymentStatus.FULLY_PAID
+                || booking.getPaymentStatus() == PaymentStatus.PARTIALLY_PAID) {
             booking.setPaymentStatus(PaymentStatus.REFUNDED);
         } else {
-            booking.setPaymentStatus(PaymentStatus.FAILED);
+            booking.setPaymentStatus(PaymentStatus.PENDING);
         }
 
         booking.setUpdatedAt(LocalDateTime.now());

@@ -27,7 +27,9 @@ public class TripMapper {
         response.setTripType(trip.getTripType());
         response.setDifficulty(trip.getDifficulty());
         response.setBestTime(trip.getBestTime());
-        response.setBadges(trip.getBadges());
+        response.setBadges(trip.getBadges() != null
+                ? trip.getBadges().stream().map(TripBadge::getBadgeName).collect(Collectors.toList())
+                : null);
         response.setAboutDescription(trip.getAboutDescription());
 
         // Destination — city + state

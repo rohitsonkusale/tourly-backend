@@ -7,11 +7,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "payment_stages")
+@Table(name = "payment_stages", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_payment_stages_booking_stage", columnNames = {"booking_id", "stage_number"})
+})
 public class PaymentStage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "payment_stage_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -21,17 +24,17 @@ public class PaymentStage {
     @Column(name = "stage_number", nullable = false)
     private Integer stageNumber;
 
-    @Column(nullable = false)
+    @Column(name = "label", nullable = false, length = 255)
     private String label;
 
-    @Column(nullable = false)
+    @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    @Column(precision = 5, scale = 2)
+    @Column(name = "percentage", precision = 5, scale = 2)
     private BigDecimal percentage;
 
-    @Column(nullable = false, length = 50)
-    private String status;
+    @Column(name = "status", nullable = false, length = 50)
+    private String status = "PENDING";
 
     @Column(name = "due_date")
     private LocalDate dueDate;
@@ -39,78 +42,31 @@ public class PaymentStage {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
-    public PaymentStage() {
-    }
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    public Long getId() {
-        return id;
-    }
+    public PaymentStage() {}
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    @PrePersist
+    protected void onCreate() { this.createdAt = LocalDateTime.now(); }
 
-    public Booking getBooking() {
-        return booking;
-    }
-
-    public void setBooking(Booking booking) {
-        this.booking = booking;
-    }
-
-    public Integer getStageNumber() {
-        return stageNumber;
-    }
-
-    public void setStageNumber(Integer stageNumber) {
-        this.stageNumber = stageNumber;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public void setLabel(String label) {
-        this.label = label;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public BigDecimal getPercentage() {
-        return percentage;
-    }
-
-    public void setPercentage(BigDecimal percentage) {
-        this.percentage = percentage;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
-
-    public void setDueDate(LocalDate dueDate) {
-        this.dueDate = dueDate;
-    }
-
-    public LocalDateTime getPaidAt() {
-        return paidAt;
-    }
-
-    public void setPaidAt(LocalDateTime paidAt) {
-        this.paidAt = paidAt;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Booking getBooking() { return booking; }
+    public void setBooking(Booking booking) { this.booking = booking; }
+    public Integer getStageNumber() { return stageNumber; }
+    public void setStageNumber(Integer stageNumber) { this.stageNumber = stageNumber; }
+    public String getLabel() { return label; }
+    public void setLabel(String label) { this.label = label; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public BigDecimal getPercentage() { return percentage; }
+    public void setPercentage(BigDecimal percentage) { this.percentage = percentage; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+    public LocalDateTime getPaidAt() { return paidAt; }
+    public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

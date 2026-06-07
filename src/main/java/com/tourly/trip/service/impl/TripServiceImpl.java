@@ -31,6 +31,7 @@ import com.tourly.trip.dto.response.TripResponse;
 import com.tourly.trip.entity.Destination;
 import com.tourly.trip.entity.Trip;
 import com.tourly.trip.entity.TripBatch;
+import com.tourly.trip.entity.TripBadge;
 import com.tourly.trip.entity.TripHighlight;
 import com.tourly.trip.entity.TripItem;
 import com.tourly.trip.entity.TripItineraryDay;
@@ -197,7 +198,25 @@ public class TripServiceImpl implements TripService {
         trip.setDurationDays(request.getDurationDays());
         trip.setDurationNights(request.getDurationNights());
         trip.setAboutDescription(request.getAboutDescription());
-        trip.setBadges(request.getBadges());
+
+        // Parse badges JSON string → List<TripBadge>
+        if (request.getBadges() != null && !request.getBadges().isBlank()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                java.util.List<String> badgeNames = mapper.readValue(request.getBadges(),
+                        mapper.getTypeFactory().constructCollectionType(java.util.List.class, String.class));
+                java.util.List<TripBadge> badgeEntities = new java.util.ArrayList<>();
+                for (String name : badgeNames) {
+                    TripBadge badge = new TripBadge();
+                    badge.setTrip(trip);
+                    badge.setBadgeName(name);
+                    badgeEntities.add(badge);
+                }
+                trip.setBadges(badgeEntities);
+            } catch (Exception e) {
+                // If parsing fails, ignore badges
+            }
+        }
 
         Trip savedTrip = tripRepository.save(trip);
 
@@ -685,7 +704,7 @@ public class TripServiceImpl implements TripService {
                     .orElseThrow(() -> new BadRequestException(
                             "Host verification profile not found. Please complete verification first."));
 
-            if (hostVerification.getVerificationStatus() != ApprovalStatus.APPROVED) {
+            if (hostVerification.getVerificationStatus() != VerificationStatus.APPROVED) {
                 throw new BadRequestException("Your host verification is not approved yet. You cannot create trips.");
             }
         } else {

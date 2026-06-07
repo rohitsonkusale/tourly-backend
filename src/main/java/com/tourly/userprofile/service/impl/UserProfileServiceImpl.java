@@ -66,7 +66,6 @@ public class UserProfileServiceImpl implements UserProfileService {
                 });
 
         UserProfileMapper.updateEntity(profile, request);
-        profile.setUpdatedAt(java.time.LocalDateTime.now());
         return UserProfileMapper.toResponse(profileRepo.save(profile));
     }
 
@@ -111,7 +110,6 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .orElseThrow(() -> new ResourceNotFoundException("Profile not found"));
 
         profile.setProfilePictureUrl(url);
-        profile.setUpdatedAt(java.time.LocalDateTime.now());
         return UserProfileMapper.toResponse(profileRepo.save(profile));
     }
 

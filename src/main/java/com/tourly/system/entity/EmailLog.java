@@ -10,20 +10,21 @@ public class EmailLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "email_log_id")
     private Long id;
 
     @Column(name = "recipient_email", nullable = false, length = 255)
     private String recipientEmail;
 
-    @Column(nullable = false, length = 255)
+    @Column(name = "subject", nullable = false, length = 255)
     private String subject;
 
     @Column(name = "template_id", length = 100)
     private String templateId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    private EmailStatus status = EmailStatus.SENT;
+    @Column(name = "status", nullable = false, length = 50)
+    private EmailStatus status;
 
     @Column(name = "provider_message_id", length = 255)
     private String providerMessageId;
@@ -31,10 +32,13 @@ public class EmailLog {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    @Column(name = "sent_at", nullable = false, updatable = false)
-    private LocalDateTime sentAt = LocalDateTime.now();
+    @Column(name = "sent_at", nullable = false)
+    private LocalDateTime sentAt;
 
     public EmailLog() {}
+
+    @PrePersist
+    protected void onCreate() { if (this.sentAt == null) this.sentAt = LocalDateTime.now(); }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

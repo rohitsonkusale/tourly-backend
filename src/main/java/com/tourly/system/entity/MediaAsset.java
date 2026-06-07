@@ -12,6 +12,7 @@ public class MediaAsset {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "media_asset_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -32,16 +33,19 @@ public class MediaAsset {
     private Long fileSize;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column(name = "provider", nullable = false, length = 50)
     private MediaProvider provider;
 
     @Column(name = "provider_public_id", length = 255)
     private String providerPublicId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
     public MediaAsset() {}
+
+    @PrePersist
+    protected void onCreate() { this.createdAt = LocalDateTime.now(); }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -60,5 +64,4 @@ public class MediaAsset {
     public String getProviderPublicId() { return providerPublicId; }
     public void setProviderPublicId(String providerPublicId) { this.providerPublicId = providerPublicId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
