@@ -58,14 +58,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // =====================================
     @Query("""
         SELECT COUNT(b) FROM Booking b
-        WHERE b.trip.planner.id = :hostId
+        WHERE (b.trip.host.id = :hostId OR b.trip.planner.id = :hostId)
           AND (b.status = 'CONFIRMED' OR b.status = 'COMPLETED')
     """)
     long countBookingsByHostId(@Param("hostId") Long hostId);
 
     @Query("""
         SELECT COALESCE(SUM(b.totalPrice), 0) FROM Booking b
-        WHERE b.trip.planner.id = :hostId
+        WHERE (b.trip.host.id = :hostId OR b.trip.planner.id = :hostId)
           AND (b.status = 'CONFIRMED' OR b.status = 'COMPLETED')
     """)
     java.math.BigDecimal sumEarningsByHostId(@Param("hostId") Long hostId);
@@ -156,7 +156,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                COUNT(b),
                COALESCE(SUM(b.totalPrice), 0)
         FROM Booking b
-        WHERE b.trip.planner.id = :hostId
+        WHERE (b.trip.host.id = :hostId OR b.trip.planner.id = :hostId)
           AND b.status IN ('CONFIRMED', 'COMPLETED')
         GROUP BY b.trip.id, b.trip.title, b.trip.destination.city
         ORDER BY COUNT(b) DESC
@@ -168,7 +168,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // =====================================
     @Query("""
         SELECT b FROM Booking b
-        WHERE b.trip.planner.id = :hostId
+        WHERE (b.trip.host.id = :hostId OR b.trip.planner.id = :hostId)
         ORDER BY b.createdAt DESC
     """)
     java.util.List<Booking> findAllBookingsByHostId(@Param("hostId") Long hostId);

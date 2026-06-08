@@ -53,7 +53,7 @@ public class PublicUserController {
 
         // Fetch all trips by this host
         List<Trip> allTrips = tripRepository
-                .findByPlannerId(userId, Pageable.unpaged())
+                .findByHostIdOrPlannerId(userId, Pageable.unpaged())
                 .getContent();
 
         long totalTrips = allTrips.size();

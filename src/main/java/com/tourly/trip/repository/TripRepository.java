@@ -100,6 +100,52 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
 
     long countByPlannerIdAndActiveTrueAndDeletedFalseAndStatus(Long plannerId, TripStatus status);
 
+    // HOST-specific queries
+    Page<Trip> findByHostId(Long hostId, Pageable pageable);
+
+    Page<Trip> findByHostIdAndDeletedFalse(Long hostId, Pageable pageable);
+
+    Page<Trip> findByHostIdAndDeletedTrue(Long hostId, Pageable pageable);
+
+    Page<Trip> findByHostIdAndActiveTrueAndDeletedFalse(Long hostId, Pageable pageable);
+
+    Page<Trip> findByHostIdAndActiveFalseAndDeletedFalse(Long hostId, Pageable pageable);
+
+    Page<Trip> findByHostIdAndStatusAndDeletedFalse(
+            Long hostId,
+            TripStatus status,
+            Pageable pageable
+    );
+
+    long countByHostIdAndActiveTrueAndDeletedFalseAndStartDateAfter(Long hostId, LocalDate date);
+
+    long countByHostIdAndActiveTrueAndDeletedFalseAndStatus(Long hostId, TripStatus status);
+
+    // Combined queries (host OR planner)
+    @Query("SELECT t FROM Trip t WHERE (t.host.id = :userId OR t.planner.id = :userId)")
+    Page<Trip> findByHostIdOrPlannerId(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT t FROM Trip t WHERE (t.host.id = :userId OR t.planner.id = :userId) AND t.deleted = false")
+    Page<Trip> findByHostIdOrPlannerIdAndDeletedFalse(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT t FROM Trip t WHERE (t.host.id = :userId OR t.planner.id = :userId) AND t.deleted = true")
+    Page<Trip> findByHostIdOrPlannerIdAndDeletedTrue(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT t FROM Trip t WHERE (t.host.id = :userId OR t.planner.id = :userId) AND t.active = true AND t.deleted = false")
+    Page<Trip> findByHostIdOrPlannerIdAndActiveTrueAndDeletedFalse(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT t FROM Trip t WHERE (t.host.id = :userId OR t.planner.id = :userId) AND t.active = false AND t.deleted = false")
+    Page<Trip> findByHostIdOrPlannerIdAndActiveFalseAndDeletedFalse(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT t FROM Trip t WHERE (t.host.id = :userId OR t.planner.id = :userId) AND t.status = :status AND t.deleted = false")
+    Page<Trip> findByHostIdOrPlannerIdAndStatusAndDeletedFalse(@Param("userId") Long userId, @Param("status") TripStatus status, Pageable pageable);
+
+    @Query("SELECT COUNT(t) FROM Trip t WHERE (t.host.id = :userId OR t.planner.id = :userId) AND t.active = true AND t.deleted = false AND t.startDate > :date")
+    long countByHostIdOrPlannerIdAndActiveTrueAndDeletedFalseAndStartDateAfter(@Param("userId") Long userId, @Param("date") LocalDate date);
+
+    @Query("SELECT COUNT(t) FROM Trip t WHERE (t.host.id = :userId OR t.planner.id = :userId) AND t.active = true AND t.deleted = false AND t.status = :status")
+    long countByHostIdOrPlannerIdAndActiveTrueAndDeletedFalseAndStatus(@Param("userId") Long userId, @Param("status") TripStatus status);
+
     // ========================================
     // ADMIN MODERATION QUERIES
     // ========================================
@@ -117,8 +163,9 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     );
 
     // Trips submitted by hosts awaiting admin approval
+    @Query("SELECT t FROM Trip t LEFT JOIN FETCH t.host LEFT JOIN FETCH t.planner LEFT JOIN FETCH t.destination WHERE t.approvalStatus = :approvalStatus AND t.deleted = false")
     java.util.List<Trip> findByApprovalStatusAndDeletedFalse(
-            com.tourly.trip.enums.ApprovalStatus approvalStatus
+            @Param("approvalStatus") com.tourly.trip.enums.ApprovalStatus approvalStatus
     );
 
     // ========================================

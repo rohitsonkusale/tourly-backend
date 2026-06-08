@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.tourly.admin.service.AdminTripService;
 import com.tourly.common.exception.BadRequestException;
@@ -18,6 +19,7 @@ import com.tourly.trip.mapper.TripMapper;
 import com.tourly.trip.repository.TripRepository;
 
 @Service
+@Transactional(readOnly = true)
 public class AdminTripServiceImpl implements AdminTripService {
 
     private final TripRepository tripRepository;
@@ -85,6 +87,7 @@ public class AdminTripServiceImpl implements AdminTripService {
     // ===============================
 
     @Override
+    @Transactional
     public TripResponse approveTrip(Long tripId) {
         Trip trip = getActiveTrip(tripId);
 
@@ -98,6 +101,7 @@ public class AdminTripServiceImpl implements AdminTripService {
     }
 
     @Override
+    @Transactional
     public TripResponse rejectTrip(Long tripId, String adminMessage) {
         if (adminMessage == null || adminMessage.trim().isEmpty()) {
             throw new BadRequestException("Rejection reason is mandatory.");
@@ -114,6 +118,7 @@ public class AdminTripServiceImpl implements AdminTripService {
     }
 
     @Override
+    @Transactional
     public TripResponse markTripPendingReview(Long tripId, String adminMessage) {
         if (adminMessage == null || adminMessage.trim().isEmpty()) {
             throw new BadRequestException("A message explaining required changes is mandatory.");
@@ -130,6 +135,7 @@ public class AdminTripServiceImpl implements AdminTripService {
     }
 
     @Override
+    @Transactional
     public TripResponse deactivateTrip(Long tripId) {
         Trip trip = getActiveTrip(tripId);
         trip.setActive(false);
@@ -140,6 +146,7 @@ public class AdminTripServiceImpl implements AdminTripService {
     }
 
     @Override
+    @Transactional
     public TripResponse reactivateTrip(Long tripId) {
         Trip trip = getActiveTrip(tripId);
         trip.setActive(true);
@@ -150,6 +157,7 @@ public class AdminTripServiceImpl implements AdminTripService {
     }
 
     @Override
+    @Transactional
     public TripResponse markTripAsDisputed(Long tripId) {
         Trip trip = getActiveTrip(tripId);
         trip.setStatus(TripStatus.DISPUTED);

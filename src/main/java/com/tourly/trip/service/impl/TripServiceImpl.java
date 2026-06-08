@@ -169,7 +169,12 @@ public class TripServiceImpl implements TripService {
         Trip trip = new Trip();
         trip.setTitle(request.getTitle().trim());
         trip.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
-        trip.setPlanner(currentUser);
+        // Set host_id for HOST users, planner_id for PLANNER users
+        if (roleName == RoleName.HOST || roleName == RoleName.ADMIN) {
+            trip.setHost(currentUser);
+        } else {
+            trip.setPlanner(currentUser);
+        }
         trip.setDestination(destination);
         trip.setStartDate(request.getStartDate());
         trip.setEndDate(request.getEndDate());
@@ -482,7 +487,7 @@ public class TripServiceImpl implements TripService {
     @Transactional(readOnly = true)
     public Page<TripResponse> getMyTrips(Pageable pageable) {
         User currentUser = getCurrentUser();
-        return tripRepository.findByPlannerId(currentUser.getId(), pageable)
+        return tripRepository.findByHostIdOrPlannerId(currentUser.getId(), pageable)
                 .map(TripMapper::mapToResponse);
     }
 
@@ -493,7 +498,7 @@ public class TripServiceImpl implements TripService {
     @Transactional(readOnly = true)
     public Page<TripResponse> getMyActiveTrips(Pageable pageable) {
         User currentUser = getCurrentUser();
-        return tripRepository.findByPlannerIdAndActiveTrueAndDeletedFalse(currentUser.getId(), pageable)
+        return tripRepository.findByHostIdOrPlannerIdAndActiveTrueAndDeletedFalse(currentUser.getId(), pageable)
                 .map(TripMapper::mapToResponse);
     }
 
@@ -504,7 +509,7 @@ public class TripServiceImpl implements TripService {
     @Transactional(readOnly = true)
     public Page<TripResponse> getMyInactiveTrips(Pageable pageable) {
         User currentUser = getCurrentUser();
-        return tripRepository.findByPlannerIdAndActiveFalseAndDeletedFalse(currentUser.getId(), pageable)
+        return tripRepository.findByHostIdOrPlannerIdAndActiveFalseAndDeletedFalse(currentUser.getId(), pageable)
                 .map(TripMapper::mapToResponse);
     }
 
@@ -515,7 +520,7 @@ public class TripServiceImpl implements TripService {
     @Transactional(readOnly = true)
     public Page<TripResponse> getMyDeletedTrips(Pageable pageable) {
         User currentUser = getCurrentUser();
-        return tripRepository.findByPlannerIdAndDeletedTrue(currentUser.getId(), pageable)
+        return tripRepository.findByHostIdOrPlannerIdAndDeletedTrue(currentUser.getId(), pageable)
                 .map(TripMapper::mapToResponse);
     }
 
@@ -526,7 +531,7 @@ public class TripServiceImpl implements TripService {
     @Transactional(readOnly = true)
     public Page<TripResponse> getMyTripsByStatus(TripStatus status, Pageable pageable) {
         User currentUser = getCurrentUser();
-        return tripRepository.findByPlannerIdAndStatusAndDeletedFalse(currentUser.getId(), status, pageable)
+        return tripRepository.findByHostIdOrPlannerIdAndStatusAndDeletedFalse(currentUser.getId(), status, pageable)
                 .map(TripMapper::mapToResponse);
     }
 
@@ -762,7 +767,7 @@ public class TripServiceImpl implements TripService {
         User currentUser = getCurrentUser();
 
         // 1. Upcoming Trips Count (active, non-deleted, starts in future)
-        long upcomingTrips = tripRepository.countByPlannerIdAndActiveTrueAndDeletedFalseAndStartDateAfter(
+        long upcomingTrips = tripRepository.countByHostIdOrPlannerIdAndActiveTrueAndDeletedFalseAndStartDateAfter(
                 currentUser.getId(),
                 LocalDate.now()
         );
@@ -774,7 +779,7 @@ public class TripServiceImpl implements TripService {
         java.math.BigDecimal earnings = bookingRepository.sumEarningsByHostId(currentUser.getId());
 
         // 4. Pending Actions Count (trips that are DRAFT / pending review)
-        long pendingTrips = tripRepository.countByPlannerIdAndActiveTrueAndDeletedFalseAndStatus(
+        long pendingTrips = tripRepository.countByHostIdOrPlannerIdAndActiveTrueAndDeletedFalseAndStatus(
                 currentUser.getId(),
                 TripStatus.DRAFT
         );
@@ -789,7 +794,7 @@ public class TripServiceImpl implements TripService {
         Long hostId = currentUser.getId();
 
         // All trips by this host
-        List<Trip> allTrips = tripRepository.findByPlannerId(hostId,
+        List<Trip> allTrips = tripRepository.findByHostIdOrPlannerId(hostId,
                 org.springframework.data.domain.Pageable.unpaged()).getContent();
 
         long totalTrips = allTrips.size();

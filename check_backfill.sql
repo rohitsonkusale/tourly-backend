@@ -1,1 +1,0 @@
-SELECT hv.host_verification_id, hv.aadhaar_number as hv_aadhaar, hv.pan_number as hv_pan, u.aadhaar_number as user_aadhaar, u.pan_number as user_pan FROM host_verifications hv JOIN users u ON hv.user_id = u.user_id;
