@@ -2,6 +2,7 @@ package com.tourly.trip.dto.request;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import com.tourly.trip.enums.CancellationPolicy;
 import com.tourly.trip.enums.TripCategory;
@@ -13,17 +14,28 @@ import jakarta.validation.constraints.Size;
 
 public class UpdateTripRequest {
 
-    @Size(min = 3, max = 120, message = "Title must be between 3 and 120 characters")
+    // ── Core fields (structural) ──────────────────────────────
+
+    @Size(min = 3, max = 150, message = "Title must be between 3 and 150 characters")
     private String title;
 
     @Size(min = 10, max = 2000, message = "Description must be between 10 and 2000 characters")
     private String description;
+
+    // Destination — by city/state (matches create flow)
+    private String destinationCity;
+    private String destinationState;
+    private Long destinationId;
+
+    // ── Dates (operational) ───────────────────────────────────
 
     @FutureOrPresent(message = "Start date cannot be in the past")
     private LocalDate startDate;
 
     @FutureOrPresent(message = "End date cannot be in the past")
     private LocalDate endDate;
+
+    // ── Pricing (operational) ─────────────────────────────────
 
     @Positive(message = "Base price must be greater than 0")
     private BigDecimal basePrice;
@@ -34,120 +46,168 @@ public class UpdateTripRequest {
     @Positive(message = "Maximum price must be greater than 0")
     private BigDecimal maxPrice;
 
+    private BigDecimal maxDiscountPercent;
+    private BigDecimal maxIncreasePercent;
+
+    // ── Seats (operational) ───────────────────────────────────
+
     @Positive(message = "Total seats must be greater than 0")
     private Integer totalSeats;
 
-    private Long destinationId;
+    // ── Logistics (structural) ────────────────────────────────
+
+    private Integer minGroupSize;
+    private Integer durationDays;
+    private Integer durationNights;
+    private String startsFrom;
+    private String endsAt;
+    private String tripType;
+    private String difficulty;
+    private String bestTime;
 
     private TripCategory category;
-
     private CancellationPolicy cancellationPolicy;
-
     private TripStatus status;
-
     private Boolean active;
 
-    public String getTitle() {
-        return title;
-    }
+    // JSON array of badge strings
+    private String badges;
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
+    // ── About section (structural) ────────────────────────────
 
-    public String getDescription() {
-        return description;
-    }
+    private String aboutDescription;
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+    // ── Gallery & Media (structural) ──────────────────────────
 
-    public LocalDate getStartDate() {
-        return startDate;
-    }
+    private String coverImageUrl;
+    private List<String> galleryUrls;
 
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
+    // ── Child collections (structural except batches) ─────────
 
-    public LocalDate getEndDate() {
-        return endDate;
-    }
+    private List<CreateTripRequest.HighlightItem> highlights;
+    private List<CreateTripRequest.ItineraryDayItem> itinerary;
+    private List<String> inclusions;
+    private List<String> exclusions;
+    private List<String> stops;
+    private List<CreateTripRequest.StayItem> stays;
+    private List<CreateTripRequest.PriceBreakdownItem> priceBreakdown;
 
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
-    }
+    // ── Batches (operational) ─────────────────────────────────
 
-    public BigDecimal getBasePrice() {
-        return basePrice;
-    }
+    private List<CreateTripRequest.BatchItem> batches;
 
-    public void setBasePrice(BigDecimal basePrice) {
-        this.basePrice = basePrice;
-    }
+    // ═══════════════════════════════════════════════════════════
+    // GETTERS & SETTERS
+    // ═══════════════════════════════════════════════════════════
 
-    public BigDecimal getMinPrice() {
-        return minPrice;
-    }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
-    public void setMinPrice(BigDecimal minPrice) {
-        this.minPrice = minPrice;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public BigDecimal getMaxPrice() {
-        return maxPrice;
-    }
+    public String getDestinationCity() { return destinationCity; }
+    public void setDestinationCity(String destinationCity) { this.destinationCity = destinationCity; }
 
-    public void setMaxPrice(BigDecimal maxPrice) {
-        this.maxPrice = maxPrice;
-    }
+    public String getDestinationState() { return destinationState; }
+    public void setDestinationState(String destinationState) { this.destinationState = destinationState; }
 
-    public Integer getTotalSeats() {
-        return totalSeats;
-    }
+    public Long getDestinationId() { return destinationId; }
+    public void setDestinationId(Long destinationId) { this.destinationId = destinationId; }
 
-    public void setTotalSeats(Integer totalSeats) {
-        this.totalSeats = totalSeats;
-    }
+    public LocalDate getStartDate() { return startDate; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
 
-    public Long getDestinationId() {
-        return destinationId;
-    }
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
 
-    public void setDestinationId(Long destinationId) {
-        this.destinationId = destinationId;
-    }
+    public BigDecimal getBasePrice() { return basePrice; }
+    public void setBasePrice(BigDecimal basePrice) { this.basePrice = basePrice; }
 
-    public TripCategory getCategory() {
-        return category;
-    }
+    public BigDecimal getMinPrice() { return minPrice; }
+    public void setMinPrice(BigDecimal minPrice) { this.minPrice = minPrice; }
 
-    public void setCategory(TripCategory category) {
-        this.category = category;
-    }
+    public BigDecimal getMaxPrice() { return maxPrice; }
+    public void setMaxPrice(BigDecimal maxPrice) { this.maxPrice = maxPrice; }
 
-    public CancellationPolicy getCancellationPolicy() {
-        return cancellationPolicy;
-    }
+    public BigDecimal getMaxDiscountPercent() { return maxDiscountPercent; }
+    public void setMaxDiscountPercent(BigDecimal maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent; }
 
-    public void setCancellationPolicy(CancellationPolicy cancellationPolicy) {
-        this.cancellationPolicy = cancellationPolicy;
-    }
+    public BigDecimal getMaxIncreasePercent() { return maxIncreasePercent; }
+    public void setMaxIncreasePercent(BigDecimal maxIncreasePercent) { this.maxIncreasePercent = maxIncreasePercent; }
 
-    public TripStatus getStatus() {
-        return status;
-    }
+    public Integer getTotalSeats() { return totalSeats; }
+    public void setTotalSeats(Integer totalSeats) { this.totalSeats = totalSeats; }
 
-    public void setStatus(TripStatus status) {
-        this.status = status;
-    }
+    public Integer getMinGroupSize() { return minGroupSize; }
+    public void setMinGroupSize(Integer minGroupSize) { this.minGroupSize = minGroupSize; }
 
-    public Boolean getActive() {
-        return active;
-    }
+    public Integer getDurationDays() { return durationDays; }
+    public void setDurationDays(Integer durationDays) { this.durationDays = durationDays; }
 
-    public void setActive(Boolean active) {
-        this.active = active;
-    }
+    public Integer getDurationNights() { return durationNights; }
+    public void setDurationNights(Integer durationNights) { this.durationNights = durationNights; }
+
+    public String getStartsFrom() { return startsFrom; }
+    public void setStartsFrom(String startsFrom) { this.startsFrom = startsFrom; }
+
+    public String getEndsAt() { return endsAt; }
+    public void setEndsAt(String endsAt) { this.endsAt = endsAt; }
+
+    public String getTripType() { return tripType; }
+    public void setTripType(String tripType) { this.tripType = tripType; }
+
+    public String getDifficulty() { return difficulty; }
+    public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
+
+    public String getBestTime() { return bestTime; }
+    public void setBestTime(String bestTime) { this.bestTime = bestTime; }
+
+    public TripCategory getCategory() { return category; }
+    public void setCategory(TripCategory category) { this.category = category; }
+
+    public CancellationPolicy getCancellationPolicy() { return cancellationPolicy; }
+    public void setCancellationPolicy(CancellationPolicy cancellationPolicy) { this.cancellationPolicy = cancellationPolicy; }
+
+    public TripStatus getStatus() { return status; }
+    public void setStatus(TripStatus status) { this.status = status; }
+
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
+
+    public String getBadges() { return badges; }
+    public void setBadges(String badges) { this.badges = badges; }
+
+    public String getAboutDescription() { return aboutDescription; }
+    public void setAboutDescription(String aboutDescription) { this.aboutDescription = aboutDescription; }
+
+    public String getCoverImageUrl() { return coverImageUrl; }
+    public void setCoverImageUrl(String coverImageUrl) { this.coverImageUrl = coverImageUrl; }
+
+    public List<String> getGalleryUrls() { return galleryUrls; }
+    public void setGalleryUrls(List<String> galleryUrls) { this.galleryUrls = galleryUrls; }
+
+    public List<CreateTripRequest.HighlightItem> getHighlights() { return highlights; }
+    public void setHighlights(List<CreateTripRequest.HighlightItem> highlights) { this.highlights = highlights; }
+
+    public List<CreateTripRequest.ItineraryDayItem> getItinerary() { return itinerary; }
+    public void setItinerary(List<CreateTripRequest.ItineraryDayItem> itinerary) { this.itinerary = itinerary; }
+
+    public List<String> getInclusions() { return inclusions; }
+    public void setInclusions(List<String> inclusions) { this.inclusions = inclusions; }
+
+    public List<String> getExclusions() { return exclusions; }
+    public void setExclusions(List<String> exclusions) { this.exclusions = exclusions; }
+
+    public List<String> getStops() { return stops; }
+    public void setStops(List<String> stops) { this.stops = stops; }
+
+    public List<CreateTripRequest.StayItem> getStays() { return stays; }
+    public void setStays(List<CreateTripRequest.StayItem> stays) { this.stays = stays; }
+
+    public List<CreateTripRequest.PriceBreakdownItem> getPriceBreakdown() { return priceBreakdown; }
+    public void setPriceBreakdown(List<CreateTripRequest.PriceBreakdownItem> priceBreakdown) { this.priceBreakdown = priceBreakdown; }
+
+    public List<CreateTripRequest.BatchItem> getBatches() { return batches; }
+    public void setBatches(List<CreateTripRequest.BatchItem> batches) { this.batches = batches; }
 }

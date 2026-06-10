@@ -11,11 +11,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.tourly.admin.service.AdminTripService;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
+import com.tourly.trip.dto.response.TripEditLogResponse;
 import com.tourly.trip.dto.response.TripResponse;
 import com.tourly.trip.entity.Trip;
+import com.tourly.trip.entity.TripEditLog;
 import com.tourly.trip.enums.ApprovalStatus;
 import com.tourly.trip.enums.TripStatus;
 import com.tourly.trip.mapper.TripMapper;
+import com.tourly.trip.repository.TripEditLogRepository;
 import com.tourly.trip.repository.TripRepository;
 
 @Service
@@ -23,9 +26,11 @@ import com.tourly.trip.repository.TripRepository;
 public class AdminTripServiceImpl implements AdminTripService {
 
     private final TripRepository tripRepository;
+    private final TripEditLogRepository tripEditLogRepository;
 
-    public AdminTripServiceImpl(TripRepository tripRepository) {
+    public AdminTripServiceImpl(TripRepository tripRepository, TripEditLogRepository tripEditLogRepository) {
         this.tripRepository = tripRepository;
+        this.tripEditLogRepository = tripEditLogRepository;
     }
 
     // ===============================
@@ -163,6 +168,46 @@ public class AdminTripServiceImpl implements AdminTripService {
         trip.setStatus(TripStatus.DISPUTED);
         trip.setActive(false);
         return TripMapper.mapToResponse(tripRepository.save(trip));
+    }
+
+    // ===============================
+    // EDIT HISTORY
+    // ===============================
+
+    @Override
+    public TripEditLogResponse getTripEditHistory(Long tripId) {
+        // Verify trip exists
+        tripRepository.findById(tripId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trip not found with ID: " + tripId));
+
+        List<TripEditLog> allLogs = tripEditLogRepository.findByTripIdOrderByCreatedAtDesc(tripId);
+        int totalEditCount = tripEditLogRepository.countEditSessions(tripId);
+
+        // Group logs by editSessionId
+        java.util.Map<String, List<TripEditLog>> grouped = allLogs.stream()
+                .collect(java.util.stream.Collectors.groupingBy(TripEditLog::getEditSessionId,
+                        java.util.LinkedHashMap::new,
+                        java.util.stream.Collectors.toList()));
+
+        List<TripEditLogResponse.EditSession> sessions = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<String, List<TripEditLog>> entry : grouped.entrySet()) {
+            List<TripEditLog> logs = entry.getValue();
+            TripEditLog firstLog = logs.get(0);
+
+            TripEditLogResponse.EditSession session = new TripEditLogResponse.EditSession();
+            session.setEditSessionId(entry.getKey());
+            session.setEditNumber(firstLog.getEditNumber());
+            session.setEditedByName(firstLog.getEditedBy().getFullName());
+            session.setEditedAt(firstLog.getCreatedAt());
+            session.setAdminMessageContext(firstLog.getAdminMessageContext());
+            session.setChanges(logs.stream().map(l -> new TripEditLogResponse.FieldChange(
+                    l.getFieldName(), l.getOldValue(), l.getNewValue()
+            )).collect(java.util.stream.Collectors.toList()));
+
+            sessions.add(session);
+        }
+
+        return new TripEditLogResponse(tripId, totalEditCount, sessions);
     }
 
     // ===============================

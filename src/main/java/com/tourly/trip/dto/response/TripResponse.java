@@ -36,6 +36,8 @@ public class TripResponse {
     private List<String> badges;
     private String aboutDescription;
     private String coverImageUrl;
+    private BigDecimal maxDiscountPercent;
+    private BigDecimal maxIncreasePercent;
 
     private java.util.List<HighlightResponse> highlights;
     private java.util.List<String> galleryUrls;
@@ -170,6 +172,12 @@ public class TripResponse {
 
     public String getCoverImageUrl() { return coverImageUrl; }
     public void setCoverImageUrl(String coverImageUrl) { this.coverImageUrl = coverImageUrl; }
+
+    public BigDecimal getMaxDiscountPercent() { return maxDiscountPercent; }
+    public void setMaxDiscountPercent(BigDecimal maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent; }
+
+    public BigDecimal getMaxIncreasePercent() { return maxIncreasePercent; }
+    public void setMaxIncreasePercent(BigDecimal maxIncreasePercent) { this.maxIncreasePercent = maxIncreasePercent; }
 
     public java.util.List<HighlightResponse> getHighlights() { return highlights; }
     public void setHighlights(java.util.List<HighlightResponse> highlights) { this.highlights = highlights; }

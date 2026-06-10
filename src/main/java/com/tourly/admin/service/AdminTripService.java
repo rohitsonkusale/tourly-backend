@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import com.tourly.trip.dto.response.TripEditLogResponse;
 import com.tourly.trip.dto.response.TripResponse;
 import com.tourly.trip.enums.TripStatus;
 
@@ -44,4 +45,9 @@ public interface AdminTripService {
     TripResponse reactivateTrip(Long tripId);
 
     TripResponse markTripAsDisputed(Long tripId);
+
+    // =========================================
+    // EDIT HISTORY
+    // =========================================
+    TripEditLogResponse getTripEditHistory(Long tripId);
 }

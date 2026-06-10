@@ -31,6 +31,8 @@ public class TripMapper {
                 ? trip.getBadges().stream().map(TripBadge::getBadgeName).collect(Collectors.toList())
                 : null);
         response.setAboutDescription(trip.getAboutDescription());
+        response.setMaxDiscountPercent(trip.getMaxDiscountPercent());
+        response.setMaxIncreasePercent(trip.getMaxIncreasePercent());
 
         // Destination — city + state
         if (trip.getDestination() != null) {

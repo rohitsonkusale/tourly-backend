@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import com.tourly.admin.dto.request.TripModerationRequest;
 import com.tourly.admin.service.AdminTripService;
 import com.tourly.common.dto.ApiResponse;
+import com.tourly.trip.dto.response.TripEditLogResponse;
 import com.tourly.trip.dto.response.TripResponse;
 import com.tourly.trip.enums.TripStatus;
 
@@ -269,5 +270,21 @@ public class AdminTripController {
             @Valid @RequestBody TripModerationRequest request) {
         TripResponse response = adminTripService.markTripPendingReview(tripId, request.getAdminMessage());
         return ResponseEntity.ok(ApiResponse.success("Trip marked as pending review", response));
+    }
+
+    // =========================================
+    // EDIT HISTORY
+    // =========================================
+
+    @GetMapping("/{tripId}/edit-history")
+    @Operation(
+            summary = "Get trip edit history",
+            description = "Returns a detailed log of all edits made to a trip, grouped by edit session. Shows old vs new values, who edited, and the admin message that prompted the edit.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<ApiResponse<TripEditLogResponse>> getTripEditHistory(
+            @PathVariable @Positive(message = "Trip ID must be greater than 0") Long tripId) {
+        TripEditLogResponse response = adminTripService.getTripEditHistory(tripId);
+        return ResponseEntity.ok(ApiResponse.success("Trip edit history fetched successfully", response));
     }
 }

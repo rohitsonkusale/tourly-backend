@@ -45,6 +45,7 @@ import com.tourly.trip.enums.ApprovalStatus;
 import com.tourly.trip.enums.MediaType;
 import com.tourly.trip.enums.TripStatus;
 import com.tourly.trip.mapper.TripMapper;
+import com.tourly.trip.entity.TripEditLog;
 import com.tourly.trip.repository.DestinationRepository;
 import com.tourly.trip.repository.TripBatchRepository;
 import com.tourly.trip.repository.TripHighlightRepository;
@@ -52,6 +53,7 @@ import com.tourly.trip.repository.TripItemRepository;
 import com.tourly.trip.repository.TripItineraryDayRepository;
 import com.tourly.trip.repository.TripMediaRepository;
 import com.tourly.trip.repository.TripPriceBreakdownRepository;
+import com.tourly.trip.repository.TripEditLogRepository;
 import com.tourly.trip.repository.TripRepository;
 import com.tourly.trip.repository.TripStayRepository;
 import com.tourly.trip.repository.TripStopRepository;
@@ -79,6 +81,7 @@ public class TripServiceImpl implements TripService {
     private final TripStopRepository tripStopRepository;
     private final TripPriceBreakdownRepository tripPriceBreakdownRepository;
     private final TripBatchRepository tripBatchRepository;
+    private final TripEditLogRepository tripEditLogRepository;
 
     public TripServiceImpl(
             TripRepository tripRepository,
@@ -94,7 +97,8 @@ public class TripServiceImpl implements TripService {
             TripStayRepository tripStayRepository,
             TripStopRepository tripStopRepository,
             TripPriceBreakdownRepository tripPriceBreakdownRepository,
-            TripBatchRepository tripBatchRepository) {
+            TripBatchRepository tripBatchRepository,
+            TripEditLogRepository tripEditLogRepository) {
         this.tripRepository = tripRepository;
         this.destinationRepository = destinationRepository;
         this.userRepository = userRepository;
@@ -109,6 +113,7 @@ public class TripServiceImpl implements TripService {
         this.tripStopRepository = tripStopRepository;
         this.tripPriceBreakdownRepository = tripPriceBreakdownRepository;
         this.tripBatchRepository = tripBatchRepository;
+        this.tripEditLogRepository = tripEditLogRepository;
     }
 
     // ========================================
@@ -552,39 +557,167 @@ public class TripServiceImpl implements TripService {
             throw new BadRequestException("Deleted trip cannot be updated.");
         }
 
-        if (request.getTitle() != null) {
-            trip.setTitle(request.getTitle().trim());
+        boolean isLimited = isLimitedEditMode(trip);
+
+        System.out.println("[TRIP UPDATE] tripId=" + tripId + " isLimited=" + isLimited + " bookedSeats=" + trip.getBookedSeats() + " approvalStatus=" + trip.getApprovalStatus());
+        System.out.println("[TRIP UPDATE] request.title=" + request.getTitle());
+        System.out.println("[TRIP UPDATE] request.aboutDescription=" + (request.getAboutDescription() != null ? request.getAboutDescription().substring(0, Math.min(50, request.getAboutDescription().length())) : "null"));
+        // ── Capture old values BEFORE applying changes ────────
+        String adminMsgContext = trip.getRejectionReason(); // admin message before edit
+        java.util.List<TripEditLog> editLogs = new java.util.ArrayList<>();
+        String sessionId = java.util.UUID.randomUUID().toString();
+        int editNumber = tripEditLogRepository.countEditSessions(tripId) + 1;
+
+        // Snapshot scalar fields for diff comparison
+        java.util.Map<String, String> oldValues = captureCurrentValues(trip, request, isLimited);
+
+        // Always apply operational fields
+        applyOperationalFields(trip, request);
+
+        // Apply structural fields only in full mode
+        if (!isLimited) {
+            applyStructuralFields(trip, request);
+        } else {
+            System.out.println("[TRIP UPDATE] Limited mode - structural fields SKIPPED for trip " + tripId);
         }
 
-        if (request.getDescription() != null) {
-            trip.setDescription(request.getDescription().trim());
+        // ── Capture new values AFTER applying changes ─────────
+        java.util.Map<String, String> newValues = captureCurrentValues(trip, request, isLimited);
+
+        // ── Build edit log entries for changed fields ──────────
+        for (java.util.Map.Entry<String, String> entry : oldValues.entrySet()) {
+            String fieldName = entry.getKey();
+            String oldVal = entry.getValue();
+            String newVal = newValues.getOrDefault(fieldName, "");
+            if (!java.util.Objects.equals(oldVal, newVal)) {
+                TripEditLog log = new TripEditLog();
+                log.setTrip(trip);
+                log.setEditedBy(currentUser);
+                log.setEditSessionId(sessionId);
+                log.setFieldName(fieldName);
+                log.setOldValue(oldVal);
+                log.setNewValue(newVal);
+                log.setAdminMessageContext(adminMsgContext);
+                log.setEditNumber(editNumber);
+                editLogs.add(log);
+            }
         }
 
-        if (request.getDestinationId() != null) {
-            Destination destination = destinationRepository.findById(request.getDestinationId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Destination not found with ID: " + request.getDestinationId()));
-            trip.setDestination(destination);
+        // Compute and set approval status transition
+        trip.setApprovalStatus(computeApprovalTransition(trip, isLimited));
+
+        // If going back to PENDING from a full edit, reset to DRAFT + inactive
+        if (!isLimited && trip.getApprovalStatus() == ApprovalStatus.PENDING) {
+            trip.setStatus(TripStatus.DRAFT);
+            trip.setActive(false);
+            // Keep rejection reason so admin can see history context
+            // trip.setRejectionReason(null); -- intentionally NOT clearing now
         }
 
-        LocalDate newStartDate = request.getStartDate() != null ? request.getStartDate() : trip.getStartDate();
-        LocalDate newEndDate = request.getEndDate() != null ? request.getEndDate() : trip.getEndDate();
-        validateTripDates(newStartDate, newEndDate);
+        Trip updatedTrip = tripRepository.save(trip);
 
-        trip.setStartDate(newStartDate);
-        trip.setEndDate(newEndDate);
-
-        if (request.getBasePrice() != null || request.getMinPrice() != null || request.getMaxPrice() != null) {
-            var newBasePrice = request.getBasePrice() != null ? request.getBasePrice() : trip.getBasePrice();
-            var newMinPrice = request.getMinPrice() != null ? request.getMinPrice() : trip.getMinPrice();
-            var newMaxPrice = request.getMaxPrice() != null ? request.getMaxPrice() : trip.getMaxPrice();
-
-            validateTripPricing(newBasePrice, newMinPrice, newMaxPrice);
-
-            trip.setBasePrice(newBasePrice);
-            trip.setMinPrice(newMinPrice);
-            trip.setMaxPrice(newMaxPrice);
+        // Save edit logs
+        if (!editLogs.isEmpty()) {
+            tripEditLogRepository.saveAll(editLogs);
         }
+
+        return TripMapper.mapToResponse(updatedTrip);
+    }
+
+    /**
+     * Captures current trip field values as strings for diff comparison.
+     * Only captures fields that the request is attempting to change.
+     */
+    private java.util.Map<String, String> captureCurrentValues(Trip trip, UpdateTripRequest request, boolean isLimited) {
+        java.util.Map<String, String> values = new java.util.LinkedHashMap<>();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        // Operational fields (always captured)
+        if (request.getStartDate() != null) values.put("startDate", str(trip.getStartDate()));
+        if (request.getEndDate() != null) values.put("endDate", str(trip.getEndDate()));
+        if (request.getBasePrice() != null) values.put("basePrice", str(trip.getBasePrice()));
+        if (request.getTotalSeats() != null) values.put("totalSeats", str(trip.getTotalSeats()));
+        if (request.getMaxDiscountPercent() != null) values.put("maxDiscountPercent", str(trip.getMaxDiscountPercent()));
+        if (request.getMaxIncreasePercent() != null) values.put("maxIncreasePercent", str(trip.getMaxIncreasePercent()));
+
+        // Structural fields (only in full mode)
+        if (!isLimited) {
+            if (request.getTitle() != null) values.put("title", str(trip.getTitle()));
+            if (request.getDescription() != null) values.put("description", str(trip.getDescription()));
+            if (request.getAboutDescription() != null) values.put("aboutDescription", str(trip.getAboutDescription()));
+            if (request.getDestinationCity() != null) values.put("destinationCity", trip.getDestination() != null ? str(trip.getDestination().getCity()) : "");
+            if (request.getDestinationState() != null) values.put("destinationState", trip.getDestination() != null ? str(trip.getDestination().getState()) : "");
+            if (request.getStartsFrom() != null) values.put("startsFrom", str(trip.getStartsFrom()));
+            if (request.getEndsAt() != null) values.put("endsAt", str(trip.getEndsAt()));
+            if (request.getDurationDays() != null) values.put("durationDays", str(trip.getDurationDays()));
+            if (request.getDurationNights() != null) values.put("durationNights", str(trip.getDurationNights()));
+            if (request.getMinGroupSize() != null) values.put("minGroupSize", str(trip.getMinGroupSize()));
+            if (request.getDifficulty() != null) values.put("difficulty", str(trip.getDifficulty()));
+            if (request.getTripType() != null) values.put("tripType", str(trip.getTripType()));
+            if (request.getBestTime() != null) values.put("bestTime", str(trip.getBestTime()));
+            if (request.getStops() != null) {
+                values.put("stops", toJson(mapper, trip.getStops().stream().map(TripStop::getStopName).collect(Collectors.toList())));
+            }
+            if (request.getInclusions() != null) {
+                values.put("inclusions", toJson(mapper, trip.getItems().stream().filter(i -> "INCLUSION".equalsIgnoreCase(i.getType())).map(TripItem::getDescription).collect(Collectors.toList())));
+            }
+            if (request.getExclusions() != null) {
+                values.put("exclusions", toJson(mapper, trip.getItems().stream().filter(i -> "EXCLUSION".equalsIgnoreCase(i.getType())).map(TripItem::getDescription).collect(Collectors.toList())));
+            }
+            if (request.getCoverImageUrl() != null) values.put("coverImageUrl", str(trip.getMedia().stream().filter(m -> Boolean.TRUE.equals(m.getIsCover())).map(TripMedia::getUrl).findFirst().orElse("")));
+            if (request.getGalleryUrls() != null) {
+                values.put("galleryUrls", toJson(mapper, trip.getMedia().stream().filter(m -> !Boolean.TRUE.equals(m.getIsCover())).map(TripMedia::getUrl).collect(Collectors.toList())));
+            }
+        }
+
+        return values;
+    }
+
+    private String str(Object val) {
+        return val != null ? val.toString() : "";
+    }
+
+    private String toJson(com.fasterxml.jackson.databind.ObjectMapper mapper, Object val) {
+        try { return mapper.writeValueAsString(val); } catch (Exception e) { return "[]"; }
+    }
+
+    // ── Edit Mode Helpers ─────────────────────────────────────
+
+    private boolean isLimitedEditMode(Trip trip) {
+        // Limited mode = trip has at least 1 booking (regardless of approval status)
+        return trip.getBookedSeats() != null && trip.getBookedSeats() > 0;
+    }
+
+    private ApprovalStatus computeApprovalTransition(Trip trip, boolean isLimitedMode) {
+        if (isLimitedMode) {
+            return ApprovalStatus.APPROVED; // limited edits don't require re-approval
+        }
+        // Full mode: PENDING stays PENDING, everything else goes to PENDING for re-review
+        return ApprovalStatus.PENDING;
+    }
+
+    private void applyOperationalFields(Trip trip, UpdateTripRequest request) {
+        if (request.getStartDate() != null || request.getEndDate() != null) {
+            LocalDate newStart = request.getStartDate() != null ? request.getStartDate() : trip.getStartDate();
+            LocalDate newEnd = request.getEndDate() != null ? request.getEndDate() : trip.getEndDate();
+            validateTripDates(newStart, newEnd);
+            trip.setStartDate(newStart);
+            trip.setEndDate(newEnd);
+        }
+
+        if (request.getBasePrice() != null) {
+            trip.setBasePrice(request.getBasePrice());
+            // Recalculate min/max based on discount/increase percentages
+            BigDecimal discountPct = request.getMaxDiscountPercent() != null ? request.getMaxDiscountPercent() : (trip.getMaxDiscountPercent() != null ? trip.getMaxDiscountPercent() : BigDecimal.ZERO);
+            BigDecimal increasePct = request.getMaxIncreasePercent() != null ? request.getMaxIncreasePercent() : (trip.getMaxIncreasePercent() != null ? trip.getMaxIncreasePercent() : BigDecimal.ZERO);
+            trip.setMinPrice(request.getBasePrice().multiply(BigDecimal.ONE.subtract(discountPct.divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP))).setScale(2, java.math.RoundingMode.HALF_UP));
+            trip.setMaxPrice(request.getBasePrice().multiply(BigDecimal.ONE.add(increasePct.divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP))).setScale(2, java.math.RoundingMode.HALF_UP));
+            trip.setCurrentPrice(request.getBasePrice());
+        }
+        if (request.getMinPrice() != null) trip.setMinPrice(request.getMinPrice());
+        if (request.getMaxPrice() != null) trip.setMaxPrice(request.getMaxPrice());
+        if (request.getMaxDiscountPercent() != null) trip.setMaxDiscountPercent(request.getMaxDiscountPercent());
+        if (request.getMaxIncreasePercent() != null) trip.setMaxIncreasePercent(request.getMaxIncreasePercent());
 
         if (request.getTotalSeats() != null) {
             if (trip.getBookedSeats() != null && request.getTotalSeats() < trip.getBookedSeats()) {
@@ -593,24 +726,238 @@ public class TripServiceImpl implements TripService {
             trip.setTotalSeats(request.getTotalSeats());
         }
 
-        if (request.getCategory() != null) {
-            trip.setCategory(request.getCategory());
+        // Batches are operational
+        if (request.getBatches() != null) {
+            trip.getBatches().clear();
+            for (CreateTripRequest.BatchItem b : request.getBatches()) {
+                if (b.getStartDate() == null || b.getEndDate() == null) continue;
+                TripBatch batch = new TripBatch();
+                batch.setTrip(trip);
+                batch.setStartDate(b.getStartDate());
+                batch.setEndDate(b.getEndDate());
+                batch.setPrice(b.getPrice() != null ? b.getPrice() : trip.getBasePrice());
+                batch.setSeatsAvailable(trip.getTotalSeats());
+                batch.setStatus("OPEN");
+                trip.getBatches().add(batch);
+            }
+        }
+    }
+
+    private void applyStructuralFields(Trip trip, UpdateTripRequest request) {
+        if (request.getTitle() != null) trip.setTitle(request.getTitle().trim());
+        if (request.getDescription() != null) trip.setDescription(request.getDescription().trim());
+
+        // Destination by city/state
+        if (request.getDestinationCity() != null && !request.getDestinationCity().trim().isEmpty()) {
+            String city = request.getDestinationCity().trim();
+            String state = request.getDestinationState() != null ? request.getDestinationState().trim() : "";
+            Destination destination = destinationRepository.findByCityIgnoreCase(city)
+                    .orElseGet(() -> {
+                        Destination d = new Destination();
+                        d.setCity(city);
+                        d.setState(state.isEmpty() ? null : state);
+                        d.setCountry("India");
+                        d.setIsActive(true);
+                        return destinationRepository.save(d);
+                    });
+            trip.setDestination(destination);
+        } else if (request.getDestinationId() != null) {
+            Destination destination = destinationRepository.findById(request.getDestinationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Destination not found with ID: " + request.getDestinationId()));
+            trip.setDestination(destination);
         }
 
-        if (request.getCancellationPolicy() != null) {
-            trip.setCancellationPolicy(request.getCancellationPolicy());
+        if (request.getAboutDescription() != null) trip.setAboutDescription(request.getAboutDescription().trim());
+        if (request.getDifficulty() != null) trip.setDifficulty(request.getDifficulty());
+        if (request.getTripType() != null) trip.setTripType(request.getTripType());
+        if (request.getStartsFrom() != null) trip.setStartsFrom(request.getStartsFrom());
+        if (request.getEndsAt() != null) trip.setEndsAt(request.getEndsAt());
+        if (request.getDurationDays() != null) trip.setDurationDays(request.getDurationDays());
+        if (request.getDurationNights() != null) trip.setDurationNights(request.getDurationNights());
+        if (request.getMinGroupSize() != null) trip.setMinGroupSize(request.getMinGroupSize());
+        if (request.getBestTime() != null) trip.setBestTime(request.getBestTime());
+        if (request.getCategory() != null) trip.setCategory(request.getCategory());
+        if (request.getCancellationPolicy() != null) trip.setCancellationPolicy(request.getCancellationPolicy());
+
+        // Badges
+        if (request.getBadges() != null && !request.getBadges().isBlank()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                java.util.List<String> badgeNames = mapper.readValue(request.getBadges(),
+                        mapper.getTypeFactory().constructCollectionType(java.util.List.class, String.class));
+                // Remove badges not in new list, add missing ones
+                trip.getBadges().removeIf(b -> !badgeNames.contains(b.getBadgeName()));
+                java.util.Set<String> existing = trip.getBadges().stream()
+                        .map(TripBadge::getBadgeName).collect(java.util.stream.Collectors.toSet());
+                for (String name : badgeNames) {
+                    if (!existing.contains(name)) {
+                        TripBadge badge = new TripBadge();
+                        badge.setTrip(trip);
+                        badge.setBadgeName(name);
+                        trip.getBadges().add(badge);
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
-        if (request.getStatus() != null) {
-            trip.setStatus(request.getStatus());
+        // Cover image
+        if (request.getCoverImageUrl() != null) {
+            // Remove old cover, add new
+            trip.getMedia().removeIf(m -> m.getIsCover() != null && m.getIsCover());
+            if (!request.getCoverImageUrl().trim().isEmpty()) {
+                TripMedia cover = new TripMedia();
+                cover.setTrip(trip);
+                cover.setUrl(request.getCoverImageUrl().trim());
+                cover.setMediaType(com.tourly.trip.enums.MediaType.IMAGE);
+                cover.setIsCover(true);
+                cover.setSortOrder(0);
+                trip.getMedia().add(cover);
+            }
         }
 
-        if (request.getActive() != null) {
-            trip.setActive(request.getActive());
+        // Gallery
+        if (request.getGalleryUrls() != null) {
+            trip.getMedia().removeIf(m -> m.getIsCover() == null || !m.getIsCover());
+            for (int i = 0; i < request.getGalleryUrls().size(); i++) {
+                String url = request.getGalleryUrls().get(i);
+                if (url == null || url.trim().isEmpty()) continue;
+                TripMedia media = new TripMedia();
+                media.setTrip(trip);
+                media.setUrl(url.trim());
+                media.setMediaType(com.tourly.trip.enums.MediaType.IMAGE);
+                media.setIsCover(false);
+                media.setSortOrder(i);
+                trip.getMedia().add(media);
+            }
         }
 
-        Trip updatedTrip = tripRepository.save(trip);
-        return TripMapper.mapToResponse(updatedTrip);
+        // Highlights
+        if (request.getHighlights() != null) {
+            trip.getHighlights().clear();
+            for (int i = 0; i < request.getHighlights().size(); i++) {
+                CreateTripRequest.HighlightItem h = request.getHighlights().get(i);
+                if (h.getTitle() == null || h.getTitle().trim().isEmpty()) continue;
+                TripHighlight highlight = new TripHighlight();
+                highlight.setTrip(trip);
+                highlight.setIcon(h.getIcon() != null ? h.getIcon() : "star");
+                highlight.setTitle(h.getTitle().trim());
+                highlight.setSortOrder(i);
+                trip.getHighlights().add(highlight);
+            }
+        }
+
+        // Itinerary
+        if (request.getItinerary() != null) {
+            trip.getItinerary().clear();
+            for (CreateTripRequest.ItineraryDayItem day : request.getItinerary()) {
+                if (day.getTitle() == null || day.getTitle().trim().isEmpty()) continue;
+                TripItineraryDay itDay = new TripItineraryDay();
+                itDay.setTrip(trip);
+                itDay.setDayNumber(day.getDay() != null ? day.getDay() : 1);
+                itDay.setTitle(day.getTitle().trim());
+                itDay.setDescription(day.getDescription());
+                itDay.setStay(day.getStay());
+                itDay.setMeals(day.getMeals());
+                itDay.setSortOrder(day.getDay() != null ? day.getDay() : 0);
+                trip.getItinerary().add(itDay);
+            }
+        }
+
+        // Inclusions
+        if (request.getInclusions() != null) {
+            trip.getItems().removeIf(i -> "INCLUSION".equalsIgnoreCase(i.getType()));
+            for (int i = 0; i < request.getInclusions().size(); i++) {
+                String desc = request.getInclusions().get(i);
+                if (desc == null || desc.trim().isEmpty()) continue;
+                TripItem item = new TripItem();
+                item.setTrip(trip);
+                item.setType("INCLUSION");
+                item.setDescription(desc.trim());
+                item.setSortOrder(i);
+                trip.getItems().add(item);
+            }
+        }
+
+        // Exclusions
+        if (request.getExclusions() != null) {
+            trip.getItems().removeIf(i -> "EXCLUSION".equalsIgnoreCase(i.getType()));
+            for (int i = 0; i < request.getExclusions().size(); i++) {
+                String desc = request.getExclusions().get(i);
+                if (desc == null || desc.trim().isEmpty()) continue;
+                TripItem item = new TripItem();
+                item.setTrip(trip);
+                item.setType("EXCLUSION");
+                item.setDescription(desc.trim());
+                item.setSortOrder(i);
+                trip.getItems().add(item);
+            }
+        }
+
+        // Stops
+        if (request.getStops() != null) {
+            trip.getStops().clear();
+            for (int i = 0; i < request.getStops().size(); i++) {
+                String stopName = request.getStops().get(i);
+                if (stopName == null || stopName.trim().isEmpty()) continue;
+                TripStop stop = new TripStop();
+                stop.setTrip(trip);
+                stop.setStopName(stopName.trim());
+                stop.setSortOrder(i);
+                trip.getStops().add(stop);
+            }
+        }
+
+        // Stays
+        if (request.getStays() != null) {
+            trip.getStays().clear();
+            for (int i = 0; i < request.getStays().size(); i++) {
+                CreateTripRequest.StayItem s = request.getStays().get(i);
+                if (s.getName() == null || s.getName().trim().isEmpty()) continue;
+                TripStay stay = new TripStay();
+                stay.setTrip(trip);
+                stay.setName(s.getName().trim());
+                stay.setLocation(s.getLocation());
+                stay.setDescription(s.getDescription());
+                stay.setSortOrder(i);
+                if (s.getAmenities() != null) {
+                    for (String amenity : s.getAmenities()) {
+                        if (amenity == null || amenity.trim().isEmpty()) continue;
+                        TripStayAmenity a = new TripStayAmenity();
+                        a.setStay(stay);
+                        a.setAmenity(amenity.trim());
+                        stay.getAmenities().add(a);
+                    }
+                }
+                if (s.getImages() != null) {
+                    for (int j = 0; j < s.getImages().size(); j++) {
+                        String imgUrl = s.getImages().get(j);
+                        if (imgUrl == null || imgUrl.trim().isEmpty()) continue;
+                        TripStayImage img = new TripStayImage();
+                        img.setStay(stay);
+                        img.setImageUrl(imgUrl.trim());
+                        img.setSortOrder(j);
+                        stay.getImages().add(img);
+                    }
+                }
+                trip.getStays().add(stay);
+            }
+        }
+
+        // Price Breakdown
+        if (request.getPriceBreakdown() != null) {
+            trip.getPriceBreakdown().clear();
+            for (int i = 0; i < request.getPriceBreakdown().size(); i++) {
+                CreateTripRequest.PriceBreakdownItem pb = request.getPriceBreakdown().get(i);
+                if (pb.getCategory() == null || pb.getAmount() == null) continue;
+                TripPriceBreakdown breakdown = new TripPriceBreakdown();
+                breakdown.setTrip(trip);
+                breakdown.setCategory(pb.getCategory().trim());
+                breakdown.setAmount(pb.getAmount());
+                breakdown.setDescription(pb.getDescription());
+                breakdown.setSortOrder(i);
+                trip.getPriceBreakdown().add(breakdown);
+            }
+        }
     }
 
     // ========================================
@@ -754,9 +1101,10 @@ public class TripServiceImpl implements TripService {
 
     private void validateTripAccess(Trip trip, User currentUser) {
         boolean isAdmin = getRoleName(currentUser) == RoleName.ADMIN;
-        boolean isOwner = trip.getPlanner() != null && trip.getPlanner().getId().equals(currentUser.getId());
+        boolean isOwnerByPlanner = trip.getPlanner() != null && trip.getPlanner().getId().equals(currentUser.getId());
+        boolean isOwnerByHost = trip.getHost() != null && trip.getHost().getId().equals(currentUser.getId());
 
-        if (!isAdmin && !isOwner) {
+        if (!isAdmin && !isOwnerByPlanner && !isOwnerByHost) {
             throw new BadRequestException("You are not allowed to manage this trip.");
         }
     }
