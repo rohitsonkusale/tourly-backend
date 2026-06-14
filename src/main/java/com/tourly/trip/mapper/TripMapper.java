@@ -43,9 +43,13 @@ public class TripMapper {
         // People
         if (trip.getPlanner() != null) {
             response.setPlannerName(trip.getPlanner().getFullName());
+            response.setPlannerId(trip.getPlanner().getId());
+            response.setPlannerAvatarUrl(trip.getPlanner().getAvatar());
         }
         if (trip.getHost() != null) {
             response.setHostName(trip.getHost().getFullName());
+            response.setHostId(trip.getHost().getId());
+            response.setHostAvatarUrl(trip.getHost().getAvatar());
         }
 
         // Trip metadata

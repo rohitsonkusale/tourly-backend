@@ -51,7 +51,11 @@ public class TripResponse {
 
     // People
     private String plannerName;
+    private Long plannerId;
+    private String plannerAvatarUrl;
     private String hostName;
+    private Long hostId;
+    private String hostAvatarUrl;
 
     // Trip metadata
     private TripCategory category;
@@ -103,8 +107,20 @@ public class TripResponse {
     public String getPlannerName() { return plannerName; }
     public void setPlannerName(String plannerName) { this.plannerName = plannerName; }
 
+    public Long getPlannerId() { return plannerId; }
+    public void setPlannerId(Long plannerId) { this.plannerId = plannerId; }
+
+    public String getPlannerAvatarUrl() { return plannerAvatarUrl; }
+    public void setPlannerAvatarUrl(String plannerAvatarUrl) { this.plannerAvatarUrl = plannerAvatarUrl; }
+
     public String getHostName() { return hostName; }
     public void setHostName(String hostName) { this.hostName = hostName; }
+
+    public Long getHostId() { return hostId; }
+    public void setHostId(Long hostId) { this.hostId = hostId; }
+
+    public String getHostAvatarUrl() { return hostAvatarUrl; }
+    public void setHostAvatarUrl(String hostAvatarUrl) { this.hostAvatarUrl = hostAvatarUrl; }
 
     public TripCategory getCategory() { return category; }
     public void setCategory(TripCategory category) { this.category = category; }

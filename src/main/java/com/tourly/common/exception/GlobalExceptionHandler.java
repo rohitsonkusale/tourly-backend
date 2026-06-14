@@ -60,6 +60,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(MessageLimitExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMessageLimitExceeded(
+            MessageLimitExceededException ex,
+            HttpServletRequest request) {
+
+        return buildErrorResponse(
+                HttpStatus.TOO_MANY_REQUESTS,
+                ex.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiErrorResponse> handleConflict(
             ConflictException ex,
