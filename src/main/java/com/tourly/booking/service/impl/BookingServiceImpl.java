@@ -17,6 +17,7 @@ import com.tourly.auth.entity.User;
 import com.tourly.auth.repository.UserRepository;
 import com.tourly.booking.dto.request.CancelBookingRequest;
 import com.tourly.booking.dto.request.CreateBookingRequest;
+import com.tourly.booking.dto.response.BookingDetailResponse;
 import com.tourly.booking.dto.response.BookingResponse;
 import com.tourly.booking.dto.response.HostBookingResponse;
 import com.tourly.booking.entity.Booking;
@@ -28,7 +29,11 @@ import com.tourly.booking.service.BookingService;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
 import com.tourly.common.exception.UnauthorizedActionException;
+import com.tourly.payment.entity.PaymentStage;
+import com.tourly.payment.repository.PaymentStageRepository;
+import com.tourly.trip.entity.Destination;
 import com.tourly.trip.entity.Trip;
+import com.tourly.trip.entity.TripMedia;
 import com.tourly.trip.repository.TripRepository;
 
 @Service
@@ -39,15 +44,18 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
+    private final PaymentStageRepository paymentStageRepository;
 
     public BookingServiceImpl(
             BookingRepository bookingRepository,
             TripRepository tripRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            PaymentStageRepository paymentStageRepository) {
 
         this.bookingRepository = bookingRepository;
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
+        this.paymentStageRepository = paymentStageRepository;
     }
 
     // =====================================
@@ -287,5 +295,104 @@ public class BookingServiceImpl implements BookingService {
         r.setCreatedAt(b.getCreatedAt());
         r.setConfirmedAt(b.getConfirmedAt());
         return r;
+    }
+
+    // =====================================
+    // BOOKING DETAIL (TRAVELER)
+    // =====================================
+    @Override
+    public BookingDetailResponse getBookingDetail(Long bookingId) {
+
+        User currentUser = getCurrentUser();
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
+
+        validateBookingOwnership(booking, currentUser);
+
+        Trip trip = booking.getTrip();
+
+        BookingDetailResponse response = new BookingDetailResponse();
+
+        // Booking info
+        response.setBookingId(booking.getId());
+        response.setBookingRef(booking.getBookingRef());
+        response.setBookingStatus(booking.getStatus() != null ? booking.getStatus().name() : null);
+        response.setPaymentStatus(booking.getPaymentStatus() != null ? booking.getPaymentStatus().name() : null);
+        response.setSeatsBooked(booking.getSeatsBooked());
+        response.setCancellationReason(booking.getCancellationReason());
+        response.setCreatedAt(booking.getCreatedAt());
+        response.setConfirmedAt(booking.getConfirmedAt());
+        response.setCancelledAt(booking.getCancelledAt());
+
+        // Financial
+        response.setBaseAmount(booking.getBaseAmount());
+        response.setDiscountAmount(booking.getDiscountAmount());
+        response.setTaxAmount(booking.getTaxAmount());
+        response.setTotalPrice(booking.getTotalPrice());
+        response.setAmountPaid(booking.getAmountPaid());
+        response.setAmountPending(booking.getAmountPending());
+
+        // Trip info
+        if (trip != null) {
+            response.setTripId(trip.getId());
+            response.setTripTitle(trip.getTitle());
+            response.setTripDescription(trip.getDescription());
+            response.setTripStartDate(trip.getStartDate());
+            response.setTripEndDate(trip.getEndDate());
+            response.setDurationDays(trip.getDurationDays());
+            response.setDurationNights(trip.getDurationNights());
+            response.setStartsFrom(trip.getStartsFrom());
+            response.setEndsAt(trip.getEndsAt());
+            response.setCancellationPolicy(
+                    trip.getCancellationPolicy() != null ? trip.getCancellationPolicy().name() : null);
+
+            // Cover image — first media with isCover=true, or first image
+            List<TripMedia> media = trip.getMedia();
+            if (media != null && !media.isEmpty()) {
+                String coverUrl = media.stream()
+                        .filter(m -> Boolean.TRUE.equals(m.getIsCover()))
+                        .map(TripMedia::getUrl)
+                        .findFirst()
+                        .orElse(media.get(0).getUrl());
+                response.setTripCoverImage(coverUrl);
+            }
+
+            // Destination
+            Destination dest = trip.getDestination();
+            if (dest != null) {
+                String destStr = dest.getCity() != null ? dest.getCity() : "";
+                if (dest.getState() != null) {
+                    destStr = destStr.isEmpty() ? dest.getState() : destStr + ", " + dest.getState();
+                }
+                response.setDestination(destStr);
+            }
+
+            // Host info (prefer host, fallback to planner)
+            User host = trip.getHost() != null ? trip.getHost() : trip.getPlanner();
+            if (host != null) {
+                response.setHostId(host.getId());
+                response.setHostName(host.getFullName());
+                response.setHostAvatar(host.getAvatar());
+            }
+        }
+
+        // Payment stages
+        List<PaymentStage> stages = paymentStageRepository.findByBookingIdOrderByStageNumberAsc(bookingId);
+        List<BookingDetailResponse.PaymentStageInfo> stageInfos = stages.stream().map(stage -> {
+            BookingDetailResponse.PaymentStageInfo info = new BookingDetailResponse.PaymentStageInfo();
+            info.setStageId(stage.getId());
+            info.setStageNumber(stage.getStageNumber());
+            info.setLabel(stage.getLabel());
+            info.setAmount(stage.getAmount());
+            info.setPercentage(stage.getPercentage());
+            info.setStatus(stage.getStatus());
+            info.setDueDate(stage.getDueDate());
+            info.setPaidAt(stage.getPaidAt());
+            return info;
+        }).collect(Collectors.toList());
+        response.setPaymentStages(stageInfos);
+
+        return response;
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.tourly.booking.dto.request.CancelBookingRequest;
 import com.tourly.booking.dto.request.CreateBookingRequest;
+import com.tourly.booking.dto.response.BookingDetailResponse;
 import com.tourly.booking.dto.response.BookingResponse;
 import com.tourly.booking.dto.response.HostBookingResponse;
 import com.tourly.booking.service.BookingService;
@@ -83,5 +84,19 @@ public class BookingController {
     public ResponseEntity<ApiResponse<List<HostBookingResponse>>> getMyTripBookings() {
         List<HostBookingResponse> response = bookingService.getMyTripBookings();
         return ResponseEntity.ok(ApiResponse.success("Host trip bookings fetched successfully", response));
+    }
+
+    // =========================================
+    // TRAVELER — Single booking detail
+    // =========================================
+    @GetMapping("/{bookingId}")
+    @PreAuthorize("hasAnyRole('TRAVELER','ADMIN')")
+    @Operation(summary = "Get booking detail",
+               description = "Returns full booking details including trip info, payment stages, and host info for the traveler",
+               security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<BookingDetailResponse>> getBookingDetail(
+            @PathVariable @Positive(message = "Booking ID must be greater than 0") Long bookingId) {
+        BookingDetailResponse response = bookingService.getBookingDetail(bookingId);
+        return ResponseEntity.ok(ApiResponse.success("Booking detail fetched successfully", response));
     }
 }
