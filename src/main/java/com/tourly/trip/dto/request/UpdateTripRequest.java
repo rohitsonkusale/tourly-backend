@@ -48,6 +48,7 @@ public class UpdateTripRequest {
 
     private BigDecimal maxDiscountPercent;
     private BigDecimal maxIncreasePercent;
+    private Boolean showPriceBifurcation;
 
     // ── Seats (operational) ───────────────────────────────────
 
@@ -135,6 +136,9 @@ public class UpdateTripRequest {
 
     public BigDecimal getMaxIncreasePercent() { return maxIncreasePercent; }
     public void setMaxIncreasePercent(BigDecimal maxIncreasePercent) { this.maxIncreasePercent = maxIncreasePercent; }
+
+    public Boolean getShowPriceBifurcation() { return showPriceBifurcation; }
+    public void setShowPriceBifurcation(Boolean showPriceBifurcation) { this.showPriceBifurcation = showPriceBifurcation; }
 
     public Integer getTotalSeats() { return totalSeats; }
     public void setTotalSeats(Integer totalSeats) { this.totalSeats = totalSeats; }

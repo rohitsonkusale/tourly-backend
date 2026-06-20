@@ -198,6 +198,7 @@ public class TripServiceImpl implements TripService {
         trip.setApprovalStatus(ApprovalStatus.PENDING);
         trip.setActive(false); // hidden until admin approves
         trip.setDeleted(false);
+        trip.setShowPriceBifurcation(request.getShowPriceBifurcation() != null ? request.getShowPriceBifurcation() : true);
 
         // Rich fields
         trip.setStartsFrom(request.getStartsFrom());
@@ -718,6 +719,7 @@ public class TripServiceImpl implements TripService {
         if (request.getMaxPrice() != null) trip.setMaxPrice(request.getMaxPrice());
         if (request.getMaxDiscountPercent() != null) trip.setMaxDiscountPercent(request.getMaxDiscountPercent());
         if (request.getMaxIncreasePercent() != null) trip.setMaxIncreasePercent(request.getMaxIncreasePercent());
+        if (request.getShowPriceBifurcation() != null) trip.setShowPriceBifurcation(request.getShowPriceBifurcation());
 
         if (request.getTotalSeats() != null) {
             if (trip.getBookedSeats() != null && request.getTotalSeats() < trip.getBookedSeats()) {

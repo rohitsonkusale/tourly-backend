@@ -16,6 +16,7 @@ public class BookingDetailResponse {
     private String bookingRef;
     private String bookingStatus;
     private String paymentStatus;
+    private String scheduleType;
     private Integer seatsBooked;
     private String cancellationReason;
     private LocalDateTime createdAt;
@@ -63,6 +64,10 @@ public class BookingDetailResponse {
         private BigDecimal percentage;
         private String status;
         private LocalDate dueDate;
+        private LocalDate invoiceOpenDate;
+        private LocalDateTime deadlineAt;
+        private LocalDateTime invoiceSentAt;
+        private Boolean isImmediate;
         private LocalDateTime paidAt;
 
         public PaymentStageInfo() {}
@@ -81,6 +86,14 @@ public class BookingDetailResponse {
         public void setStatus(String status) { this.status = status; }
         public LocalDate getDueDate() { return dueDate; }
         public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+        public LocalDate getInvoiceOpenDate() { return invoiceOpenDate; }
+        public void setInvoiceOpenDate(LocalDate invoiceOpenDate) { this.invoiceOpenDate = invoiceOpenDate; }
+        public LocalDateTime getDeadlineAt() { return deadlineAt; }
+        public void setDeadlineAt(LocalDateTime deadlineAt) { this.deadlineAt = deadlineAt; }
+        public LocalDateTime getInvoiceSentAt() { return invoiceSentAt; }
+        public void setInvoiceSentAt(LocalDateTime invoiceSentAt) { this.invoiceSentAt = invoiceSentAt; }
+        public Boolean getIsImmediate() { return isImmediate; }
+        public void setIsImmediate(Boolean isImmediate) { this.isImmediate = isImmediate; }
         public LocalDateTime getPaidAt() { return paidAt; }
         public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
     }
@@ -98,6 +111,9 @@ public class BookingDetailResponse {
 
     public String getPaymentStatus() { return paymentStatus; }
     public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+
+    public String getScheduleType() { return scheduleType; }
+    public void setScheduleType(String scheduleType) { this.scheduleType = scheduleType; }
 
     public Integer getSeatsBooked() { return seatsBooked; }
     public void setSeatsBooked(Integer seatsBooked) { this.seatsBooked = seatsBooked; }

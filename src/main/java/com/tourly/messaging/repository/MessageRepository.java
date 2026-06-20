@@ -75,4 +75,13 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
         ORDER BY m.createdAt DESC
     """)
     List<Message> findAllByTraveler(@Param("traveler") User traveler);
+
+    // =====================================
+    // COUNT: Unread messages received by a user
+    // =====================================
+    @Query("""
+        SELECT COUNT(m) FROM Message m
+        WHERE m.recipient = :user AND m.isRead = false
+    """)
+    long countUnreadByRecipient(@Param("user") User user);
 }

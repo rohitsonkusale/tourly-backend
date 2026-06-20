@@ -39,7 +39,7 @@ public class RefundController {
         RefundResponse response = refundService.processFullRefund(bookingId, request, userEmail);
 
         return ResponseEntity.ok(
-                ApiResponse.success("Refund processed successfully", response)
+                ApiResponse.success("Refund request submitted. It will be processed after admin approval.", response)
         );
     }
 }

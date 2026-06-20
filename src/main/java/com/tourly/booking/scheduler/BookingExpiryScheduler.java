@@ -11,7 +11,10 @@ import com.tourly.booking.entity.Booking;
 import com.tourly.booking.enums.BookingStatus;
 import com.tourly.booking.repository.BookingRepository;
 import com.tourly.payment.entity.Payment;
+import com.tourly.payment.entity.PaymentStage;
+import com.tourly.payment.enums.PaymentStageStatus;
 import com.tourly.payment.repository.PaymentRepository;
+import com.tourly.payment.repository.PaymentStageRepository;
 import com.tourly.payment.enums.PaymentStatus;
 import com.tourly.trip.entity.Trip;
 import com.tourly.trip.repository.TripRepository;
@@ -21,15 +24,18 @@ public class BookingExpiryScheduler {
 
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
+    private final PaymentStageRepository paymentStageRepository;
     private final TripRepository tripRepository;
 
     public BookingExpiryScheduler(
             BookingRepository bookingRepository,
             PaymentRepository paymentRepository,
+            PaymentStageRepository paymentStageRepository,
             TripRepository tripRepository) {
 
         this.bookingRepository = bookingRepository;
         this.paymentRepository = paymentRepository;
+        this.paymentStageRepository = paymentStageRepository;
         this.tripRepository = tripRepository;
     }
 
@@ -37,8 +43,6 @@ public class BookingExpiryScheduler {
     @Scheduled(fixedRate = 60000)
     @Transactional
     public void releaseExpiredBookings() {
-
-        System.out.println("Checking expired bookings...");
 
         List<Booking> expiredBookings =
                 bookingRepository.findExpiredBookings(LocalDateTime.now());
@@ -60,16 +64,30 @@ public class BookingExpiryScheduler {
 
             // Mark booking expired/cancelled
             booking.setStatus(BookingStatus.CANCELLED);
+            booking.setCancellationReason("Booking expired: Stage 1 payment not completed");
             booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.PENDING);
+            booking.setCancelledAt(LocalDateTime.now());
             booking.setUpdatedAt(LocalDateTime.now());
-
             bookingRepository.save(booking);
+
+            // Cancel all payment stages for this expired booking
+            List<PaymentStage> stages = paymentStageRepository.findByBookingIdAndStatusIn(
+                    booking.getId(),
+                    List.of(PaymentStageStatus.PENDING, PaymentStageStatus.INVOICE_SENT)
+            );
+            for (PaymentStage stage : stages) {
+                stage.setStatus(PaymentStageStatus.CANCELLED);
+            }
+            if (!stages.isEmpty()) {
+                paymentStageRepository.saveAll(stages);
+            }
 
             // Also mark payment failed if still CREATED
             Payment payment = paymentRepository.findFirstByBookingIdOrderByCreatedAtDesc(booking.getId()).orElse(null);
 
             if (payment != null && payment.getStatus() == PaymentStatus.CREATED) {
                 payment.setStatus(PaymentStatus.FAILED);
+                payment.setFailureReason("Booking expired before payment");
                 paymentRepository.save(payment);
             }
         }

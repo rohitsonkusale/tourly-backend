@@ -142,6 +142,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<jvmArguments>-Xms256m -Xmx1024m</jvmArguments>
 					<excludes>
 						<exclude>
 							<groupId>org.projectlombok</groupId>
@@ -155,10 +156,10 @@
 				<artifactId>flyway-maven-plugin</artifactId>
 				<version>11.7.2</version>
 				<configuration>
-					<url>jdbc:mysql://localhost:3306/tourly_db</url>
-					<user>tourly_user</user>
-					<password>Tourly@123</password>
-					<cleanDisabled>false</cleanDisabled>
+					<url>${env.DB_URL}</url>
+					<user>${env.DB_USERNAME}</user>
+					<password>${env.DB_PASSWORD}</password>
+					<cleanDisabled>${env.FLYWAY_CLEAN_DISABLED}</cleanDisabled>
 				</configuration>
 			</plugin>
 		</plugins>

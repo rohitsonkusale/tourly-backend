@@ -36,9 +36,18 @@ build/
 *.log
 *.class
 /FixDb.java
+/CheckDb.java
 /check.sql
 /drop_flyway.sql
+/drop_and_rebuild.sql
 /fix_v3.sql
+/fix_admin_and_seed.sql
 /recreate_db.sql
 /out.txt
 /test.bat
+hs_err_pid*
+
+### Environment / Secrets ###
+.env
+.env.local
+.env.production

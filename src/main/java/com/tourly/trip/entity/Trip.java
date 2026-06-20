@@ -121,6 +121,9 @@ public class Trip {
     @Column(name = "is_deleted", nullable = false)
     private Boolean deleted = false;
 
+    @Column(name = "show_price_bifurcation", nullable = false)
+    private Boolean showPriceBifurcation = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -248,6 +251,8 @@ public class Trip {
     public void setActive(Boolean active) { this.active = active; }
     public Boolean getDeleted() { return deleted; }
     public void setDeleted(Boolean deleted) { this.deleted = deleted; }
+    public Boolean getShowPriceBifurcation() { return showPriceBifurcation; }
+    public void setShowPriceBifurcation(Boolean showPriceBifurcation) { this.showPriceBifurcation = showPriceBifurcation; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

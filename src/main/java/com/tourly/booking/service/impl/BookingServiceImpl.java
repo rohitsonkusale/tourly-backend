@@ -30,7 +30,11 @@ import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
 import com.tourly.common.exception.UnauthorizedActionException;
 import com.tourly.payment.entity.PaymentStage;
+import com.tourly.payment.enums.ScheduleType;
 import com.tourly.payment.repository.PaymentStageRepository;
+import com.tourly.payment.service.PaymentStageCalculator;
+import com.tourly.payment.service.RefundService;
+import com.tourly.notification.service.PaymentNotificationService;
 import com.tourly.trip.entity.Destination;
 import com.tourly.trip.entity.Trip;
 import com.tourly.trip.entity.TripMedia;
@@ -45,17 +49,26 @@ public class BookingServiceImpl implements BookingService {
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
     private final PaymentStageRepository paymentStageRepository;
+    private final PaymentStageCalculator paymentStageCalculator;
+    private final PaymentNotificationService paymentNotificationService;
+    private final RefundService refundService;
 
     public BookingServiceImpl(
             BookingRepository bookingRepository,
             TripRepository tripRepository,
             UserRepository userRepository,
-            PaymentStageRepository paymentStageRepository) {
+            PaymentStageRepository paymentStageRepository,
+            PaymentStageCalculator paymentStageCalculator,
+            PaymentNotificationService paymentNotificationService,
+            RefundService refundService) {
 
         this.bookingRepository = bookingRepository;
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
         this.paymentStageRepository = paymentStageRepository;
+        this.paymentStageCalculator = paymentStageCalculator;
+        this.paymentNotificationService = paymentNotificationService;
+        this.refundService = refundService;
     }
 
     // =====================================
@@ -150,6 +163,23 @@ public class BookingServiceImpl implements BookingService {
             throw new BadRequestException("Trip price is not configured");
         }
 
+        // ===== PAYMENT STAGE VALIDATION =====
+        // Block bookings less than 7 days before departure
+        LocalDate today = LocalDate.now();
+        LocalDate departureDate = trip.getStartDate();
+
+        if (departureDate == null) {
+            throw new BadRequestException("Trip departure date is not configured");
+        }
+
+        if (!paymentStageCalculator.isBookingAllowed(today, departureDate)) {
+            throw new BadRequestException(
+                "Bookings are closed for this trip. Minimum 7 days before departure required.");
+        }
+
+        // Determine schedule type
+        ScheduleType scheduleType = paymentStageCalculator.determineScheduleType(today, departureDate);
+
         trip.setBookedSeats(trip.getBookedSeats() + request.getSeats());
         tripRepository.save(trip);
 
@@ -163,14 +193,30 @@ public class BookingServiceImpl implements BookingService {
         booking.setTotalPrice(totalPrice);
         booking.setStatus(BookingStatus.PENDING);
         booking.setPaymentStatus(PaymentStatus.PENDING);
+        booking.setScheduleType(scheduleType);
         booking.setCreatedAt(LocalDateTime.now());
         booking.setUpdatedAt(LocalDateTime.now());
         booking.setExpiresAt(LocalDateTime.now().plusMinutes(10));
 
         Booking savedBooking = bookingRepository.save(booking);
 
-        log.info("Booking created: bookingId={}, tripId={}, travelerId={}, seats={}",
-                savedBooking.getId(), trip.getId(), traveler.getId(), request.getSeats());
+        // ===== GENERATE & PERSIST PAYMENT STAGES =====
+        List<PaymentStage> stages = paymentStageCalculator.generateStages(today, departureDate, totalPrice);
+        for (PaymentStage stage : stages) {
+            stage.setBooking(savedBooking);
+        }
+        paymentStageRepository.saveAll(stages);
+
+        log.info("Booking created: bookingId={}, tripId={}, travelerId={}, seats={}, scheduleType={}",
+                savedBooking.getId(), trip.getId(), traveler.getId(), request.getSeats(), scheduleType);
+
+        // Notify traveler — Event 1: Booking Created
+        paymentNotificationService.notifyBookingCreated(
+                traveler.getId(),
+                savedBooking.getId(),
+                trip.getTitle(),
+                stages.get(0).getAmount()
+        );
 
         return BookingMapper.toResponse(savedBooking);
     }
@@ -179,6 +225,7 @@ public class BookingServiceImpl implements BookingService {
     // TRAVELER BOOKINGS
     // =====================================
     @Override
+    @Transactional(readOnly = true)
     public List<BookingResponse> getMyBookings() {
 
         User traveler = getCurrentUser();
@@ -263,16 +310,42 @@ public class BookingServiceImpl implements BookingService {
             booking.setPaymentStatus(PaymentStatus.PENDING);
         }
 
+        booking.setCancellationReason(request.getReason());
+        booking.setCancelledAt(LocalDateTime.now());
         booking.setUpdatedAt(LocalDateTime.now());
         bookingRepository.save(booking);
 
-        log.info("Booking cancelled: bookingId={}, userId={}", bookingId, currentUser.getId());
+        // Cancel all unpaid payment stages
+        List<PaymentStage> unpaidStages = paymentStageRepository.findByBookingIdAndStatusIn(
+                bookingId,
+                List.of(
+                    com.tourly.payment.enums.PaymentStageStatus.PENDING,
+                    com.tourly.payment.enums.PaymentStageStatus.INVOICE_SENT,
+                    com.tourly.payment.enums.PaymentStageStatus.OVERDUE
+                )
+        );
+        for (PaymentStage stage : unpaidStages) {
+            stage.setStatus(com.tourly.payment.enums.PaymentStageStatus.CANCELLED);
+        }
+        if (!unpaidStages.isEmpty()) {
+            paymentStageRepository.saveAll(unpaidStages);
+        }
+
+        log.info("Booking cancelled: bookingId={}, userId={}, stagesCancelled={}",
+                bookingId, currentUser.getId(), unpaidStages.size());
+
+        // Initiate refund for previously paid stages per cancellation policy
+        if (booking.getAmountPaid() != null && booking.getAmountPaid().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            refundService.initiateAutoCancellationRefund(bookingId,
+                    request.getReason() != null ? request.getReason() : "Traveler-initiated cancellation");
+        }
     }
 
     // =====================================
     // HOST — All bookings across host's trips
     // =====================================
     @Override
+    @Transactional(readOnly = true)
     public List<HostBookingResponse> getMyTripBookings() {
         User currentUser = getCurrentUser();
         List<Booking> bookings = bookingRepository.findAllBookingsByHostId(currentUser.getId());
@@ -301,6 +374,7 @@ public class BookingServiceImpl implements BookingService {
     // BOOKING DETAIL (TRAVELER)
     // =====================================
     @Override
+    @Transactional(readOnly = true)
     public BookingDetailResponse getBookingDetail(Long bookingId) {
 
         User currentUser = getCurrentUser();
@@ -386,8 +460,12 @@ public class BookingServiceImpl implements BookingService {
             info.setLabel(stage.getLabel());
             info.setAmount(stage.getAmount());
             info.setPercentage(stage.getPercentage());
-            info.setStatus(stage.getStatus());
+            info.setStatus(stage.getStatus() != null ? stage.getStatus().name() : null);
             info.setDueDate(stage.getDueDate());
+            info.setInvoiceOpenDate(stage.getInvoiceOpenDate());
+            info.setDeadlineAt(stage.getDeadlineAt());
+            info.setInvoiceSentAt(stage.getInvoiceSentAt());
+            info.setIsImmediate(stage.getIsImmediate());
             info.setPaidAt(stage.getPaidAt());
             return info;
         }).collect(Collectors.toList());

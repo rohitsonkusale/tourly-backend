@@ -110,6 +110,8 @@ public class CreateTripRequest {
 
     private List<PriceBreakdownItem> priceBreakdown;
 
+    private Boolean showPriceBifurcation;
+
     // ── Batches ───────────────────────────────────────────────
 
     private List<BatchItem> batches;
@@ -283,6 +285,9 @@ public class CreateTripRequest {
 
     public List<PriceBreakdownItem> getPriceBreakdown() { return priceBreakdown; }
     public void setPriceBreakdown(List<PriceBreakdownItem> priceBreakdown) { this.priceBreakdown = priceBreakdown; }
+
+    public Boolean getShowPriceBifurcation() { return showPriceBifurcation; }
+    public void setShowPriceBifurcation(Boolean showPriceBifurcation) { this.showPriceBifurcation = showPriceBifurcation; }
 
     public List<BatchItem> getBatches() { return batches; }
     public void setBatches(List<BatchItem> batches) { this.batches = batches; }

@@ -12,6 +12,7 @@ public class RefundResponse {
     private BigDecimal refundedAmount;
     private String paymentStatus;
     private String bookingStatus;
+    private String refundStatus;
     private String refundReason;
     private LocalDateTime refundedAt;
 
@@ -72,6 +73,14 @@ public class RefundResponse {
 
     public void setBookingStatus(String bookingStatus) {
         this.bookingStatus = bookingStatus;
+    }
+
+    public String getRefundStatus() {
+        return refundStatus;
+    }
+
+    public void setRefundStatus(String refundStatus) {
+        this.refundStatus = refundStatus;
     }
 
     public String getRefundReason() {

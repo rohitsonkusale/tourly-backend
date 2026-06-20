@@ -9,11 +9,23 @@ public class CreatePaymentRequest {
     @Positive(message = "Booking ID must be greater than 0")
     private Long bookingId;
 
+    @NotNull(message = "Stage ID is required")
+    @Positive(message = "Stage ID must be greater than 0")
+    private Long stageId;
+
     public Long getBookingId() {
         return bookingId;
     }
 
     public void setBookingId(Long bookingId) {
         this.bookingId = bookingId;
+    }
+
+    public Long getStageId() {
+        return stageId;
+    }
+
+    public void setStageId(Long stageId) {
+        this.stageId = stageId;
     }
 } 

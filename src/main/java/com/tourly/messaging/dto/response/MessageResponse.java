@@ -11,6 +11,7 @@ public class MessageResponse {
     private String content;
     private LocalDateTime createdAt;
     private String senderType; // "TRAVELER" or "HOST"
+    private boolean contactMasked;
 
     public MessageResponse() {
     }
@@ -24,6 +25,20 @@ public class MessageResponse {
         this.content = content;
         this.createdAt = createdAt;
         this.senderType = senderType;
+        this.contactMasked = false;
+    }
+
+    public MessageResponse(Long id, Long senderId, Long recipientId, Long tripId,
+                           String content, LocalDateTime createdAt, String senderType,
+                           boolean contactMasked) {
+        this.id = id;
+        this.senderId = senderId;
+        this.recipientId = recipientId;
+        this.tripId = tripId;
+        this.content = content;
+        this.createdAt = createdAt;
+        this.senderType = senderType;
+        this.contactMasked = contactMasked;
     }
 
     // Getters & Setters
@@ -81,5 +96,13 @@ public class MessageResponse {
 
     public void setSenderType(String senderType) {
         this.senderType = senderType;
+    }
+
+    public boolean isContactMasked() {
+        return contactMasked;
+    }
+
+    public void setContactMasked(boolean contactMasked) {
+        this.contactMasked = contactMasked;
     }
 }

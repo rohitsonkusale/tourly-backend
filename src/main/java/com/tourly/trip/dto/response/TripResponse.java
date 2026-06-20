@@ -48,6 +48,7 @@ public class TripResponse {
     private java.util.List<StayResponse> stays;
     private java.util.List<PriceBreakdownResponse> priceBreakdown;
     private java.util.List<BatchResponse> batches;
+    private Boolean showPriceBifurcation;
 
     // People
     private String plannerName;
@@ -218,6 +219,9 @@ public class TripResponse {
 
     public java.util.List<PriceBreakdownResponse> getPriceBreakdown() { return priceBreakdown; }
     public void setPriceBreakdown(java.util.List<PriceBreakdownResponse> priceBreakdown) { this.priceBreakdown = priceBreakdown; }
+
+    public Boolean getShowPriceBifurcation() { return showPriceBifurcation; }
+    public void setShowPriceBifurcation(Boolean showPriceBifurcation) { this.showPriceBifurcation = showPriceBifurcation; }
 
     public java.util.List<BatchResponse> getBatches() { return batches; }
     public void setBatches(java.util.List<BatchResponse> batches) { this.batches = batches; }

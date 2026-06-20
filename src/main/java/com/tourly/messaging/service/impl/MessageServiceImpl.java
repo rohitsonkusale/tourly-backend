@@ -18,6 +18,8 @@ import com.tourly.messaging.enums.LinkStatus;
 import com.tourly.messaging.repository.MessageRepository;
 import com.tourly.messaging.repository.TravelerHostLinkRepository;
 import com.tourly.messaging.service.MessageService;
+import com.tourly.messaging.service.ContactViolationService;
+import com.tourly.messaging.util.ContactMaskingUtil;
 import com.tourly.trip.entity.Trip;
 import com.tourly.trip.entity.TripMedia;
 import com.tourly.trip.repository.TripRepository;
@@ -45,16 +47,19 @@ public class MessageServiceImpl implements MessageService {
     private final TravelerHostLinkRepository travelerHostLinkRepository;
     private final UserRepository userRepository;
     private final TripRepository tripRepository;
+    private final ContactViolationService contactViolationService;
     private final SecureRandom secureRandom;
 
     public MessageServiceImpl(MessageRepository messageRepository,
                               TravelerHostLinkRepository travelerHostLinkRepository,
                               UserRepository userRepository,
-                              TripRepository tripRepository) {
+                              TripRepository tripRepository,
+                              ContactViolationService contactViolationService) {
         this.messageRepository = messageRepository;
         this.travelerHostLinkRepository = travelerHostLinkRepository;
         this.userRepository = userRepository;
         this.tripRepository = tripRepository;
+        this.contactViolationService = contactViolationService;
         this.secureRandom = new SecureRandom();
     }
 
@@ -88,6 +93,12 @@ public class MessageServiceImpl implements MessageService {
             throw new BadRequestException("Message content is required");
         }
 
+        // Check if user is blocked due to repeated contact-sharing attempts
+        if (contactViolationService.isUserBlocked(sender)) {
+            throw new BadRequestException(
+                    "Your messaging is temporarily restricted due to repeated contact-sharing attempts. Please try again after 24 hours.");
+        }
+
         // Get or create the TravelerHostLink
         TravelerHostLink link = travelerHostLinkRepository.findByTravelerAndHost(sender, host)
                 .orElse(null);
@@ -118,12 +129,22 @@ public class MessageServiceImpl implements MessageService {
         message.setSender(sender);
         message.setRecipient(host);
         message.setTrip(trip);
-        message.setContent(request.getContent().trim());
+
+        // Mask contact information before saving
+        ContactMaskingUtil.MaskResult maskResult = ContactMaskingUtil.maskContactInfo(request.getContent().trim());
+        message.setContent(maskResult.getMaskedContent());
         message.setIsRead(false);
+        message.setContactMasked(maskResult.wasMasked());
 
         Message savedMessage = messageRepository.save(message);
 
-        return mapToMessageResponse(savedMessage, "TRAVELER");
+        // Record violation if contact info was detected
+        if (maskResult.wasMasked()) {
+            contactViolationService.recordViolation(
+                    sender, savedMessage.getId(), request.getContent().trim(), maskResult);
+        }
+
+        return mapToMessageResponse(savedMessage, "TRAVELER", maskResult.wasMasked());
     }
 
     // =========================================
@@ -152,17 +173,33 @@ public class MessageServiceImpl implements MessageService {
             throw new BadRequestException("Reply content is required");
         }
 
+        // Check if host is blocked due to repeated contact-sharing attempts
+        if (contactViolationService.isUserBlocked(host)) {
+            throw new BadRequestException(
+                    "Your messaging is temporarily restricted due to repeated contact-sharing attempts. Please try again after 24 hours.");
+        }
+
         // Persist the reply (host → traveler)
         Message message = new Message();
         message.setSender(host);
         message.setRecipient(traveler);
         message.setTrip(trip);
-        message.setContent(request.getContent().trim());
+
+        // Mask contact information before saving
+        ContactMaskingUtil.MaskResult maskResult = ContactMaskingUtil.maskContactInfo(request.getContent().trim());
+        message.setContent(maskResult.getMaskedContent());
         message.setIsRead(false);
+        message.setContactMasked(maskResult.wasMasked());
 
         Message savedMessage = messageRepository.save(message);
 
-        return mapToMessageResponse(savedMessage, "HOST");
+        // Record violation if contact info was detected
+        if (maskResult.wasMasked()) {
+            contactViolationService.recordViolation(
+                    host, savedMessage.getId(), request.getContent().trim(), maskResult);
+        }
+
+        return mapToMessageResponse(savedMessage, "HOST", maskResult.wasMasked());
     }
 
     // =========================================
@@ -395,6 +432,16 @@ public class MessageServiceImpl implements MessageService {
     }
 
     // =========================================
+    // GET UNREAD COUNT
+    // =========================================
+    @Override
+    @Transactional(readOnly = true)
+    public long getUnreadCount() {
+        User user = getCurrentUser();
+        return messageRepository.countUnreadByRecipient(user);
+    }
+
+    // =========================================
     // PRIVATE HELPERS
     // =========================================
 
@@ -425,6 +472,10 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private MessageResponse mapToMessageResponse(Message message, String senderType) {
+        return mapToMessageResponse(message, senderType, Boolean.TRUE.equals(message.getContactMasked()));
+    }
+
+    private MessageResponse mapToMessageResponse(Message message, String senderType, boolean contactMasked) {
         return new MessageResponse(
                 message.getId(),
                 message.getSender().getId(),
@@ -432,7 +483,8 @@ public class MessageServiceImpl implements MessageService {
                 message.getTrip().getId(),
                 message.getContent(),
                 message.getCreatedAt(),
-                senderType
+                senderType,
+                contactMasked
         );
     }
 

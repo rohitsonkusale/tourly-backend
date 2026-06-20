@@ -137,6 +137,8 @@ public class TripMapper {
             }).collect(Collectors.toList()));
         }
 
+        response.setShowPriceBifurcation(trip.getShowPriceBifurcation() != null ? trip.getShowPriceBifurcation() : true);
+
         if (trip.getBatches() != null) {
             response.setBatches(trip.getBatches().stream().map(b -> {
                 TripResponse.BatchResponse br = new TripResponse.BatchResponse();

@@ -4,6 +4,7 @@ import com.tourly.auth.entity.User;
 import com.tourly.booking.enums.BookingStatus;
 import com.tourly.booking.enums.PaymentStatus;
 import com.tourly.common.entity.Coupon;
+import com.tourly.payment.enums.ScheduleType;
 import com.tourly.trip.entity.Trip;
 import com.tourly.trip.entity.TripBatch;
 import jakarta.persistence.*;
@@ -67,6 +68,10 @@ public class Booking {
     @Column(name = "payment_status", nullable = false, length = 50)
     private PaymentStatus paymentStatus;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "schedule_type", length = 20)
+    private ScheduleType scheduleType;
+
     @Column(name = "cancellation_reason", length = 255)
     private String cancellationReason;
 
@@ -99,6 +104,9 @@ public class Booking {
         if (this.paymentStatus == null) this.paymentStatus = PaymentStatus.PENDING;
         if (this.amountPaid == null) this.amountPaid = BigDecimal.ZERO;
         if (this.amountPending == null) this.amountPending = this.totalPrice;
+        if (this.bookingRef == null || this.bookingRef.isEmpty()) {
+            this.bookingRef = "RM-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 9000 + 1000);
+        }
     }
 
     @PreUpdate
@@ -136,6 +144,8 @@ public class Booking {
     public void setStatus(BookingStatus status) { this.status = status; }
     public PaymentStatus getPaymentStatus() { return paymentStatus; }
     public void setPaymentStatus(PaymentStatus paymentStatus) { this.paymentStatus = paymentStatus; }
+    public ScheduleType getScheduleType() { return scheduleType; }
+    public void setScheduleType(ScheduleType scheduleType) { this.scheduleType = scheduleType; }
     public String getCancellationReason() { return cancellationReason; }
     public void setCancellationReason(String cancellationReason) { this.cancellationReason = cancellationReason; }
     public LocalDateTime getExpiresAt() { return expiresAt; }

@@ -1,5 +1,7 @@
 package com.tourly.payment.controller;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -9,6 +11,7 @@ import com.tourly.common.dto.ApiResponse;
 import com.tourly.payment.dto.request.CreatePaymentRequest;
 import com.tourly.payment.dto.request.VerifyPaymentRequest;
 import com.tourly.payment.dto.response.PaymentResponse;
+import com.tourly.payment.dto.response.UpcomingPaymentResponse;
 import com.tourly.payment.service.PaymentService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -61,5 +64,20 @@ public class PaymentController {
         paymentService.verifyPayment(request);
 
         return ResponseEntity.ok(ApiResponse.success("Payment verified successfully"));
+    }
+
+    // =====================================
+    // UPCOMING PAYMENTS (DASHBOARD WIDGET)
+    // =====================================
+    @GetMapping("/upcoming")
+    @Operation(
+            summary = "Get upcoming payments",
+            description = "Returns all pending/invoice-sent payment stages for the logged-in traveler, sorted by due date"
+    )
+    public ResponseEntity<ApiResponse<List<UpcomingPaymentResponse>>> getUpcomingPayments() {
+
+        List<UpcomingPaymentResponse> payments = paymentService.getUpcomingPayments();
+
+        return ResponseEntity.ok(ApiResponse.success("Upcoming payments retrieved", payments));
     }
 }

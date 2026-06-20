@@ -33,6 +33,8 @@ import com.tourly.trip.repository.TripRepository;
 @Service
 public class RefundServiceImpl implements RefundService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RefundServiceImpl.class);
+
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
@@ -122,7 +124,7 @@ public class RefundServiceImpl implements RefundService {
             throw new BadRequestException("Refund is allowed only before trip start date");
         }
 
-        // 10. Create Refund record (PENDING state)
+        // 10. Create Refund record in PENDING state (awaiting admin approval)
         Refund refundEntity = new Refund();
         refundEntity.setBooking(booking);
         refundEntity.setPayment(payment);
@@ -135,66 +137,237 @@ public class RefundServiceImpl implements RefundService {
         refundEntity.setRequestedAt(LocalDateTime.now());
         refundRepository.save(refundEntity);
 
+        log.info("Refund request submitted (awaiting admin approval). bookingId={}, paymentId={}, amount={}, userId={}",
+                bookingId, payment.getId(), payment.getAmount(), user.getId());
+
+        // 11. Build response — no Razorpay call, refund pending admin approval
+        RefundResponse response = new RefundResponse();
+        response.setBookingId(booking.getId());
+        response.setPaymentId(payment.getId());
+        response.setRazorpayPaymentId(payment.getRazorpayPaymentId());
+        response.setRazorpayRefundId(null);
+        response.setRefundedAmount(refundEntity.getRefundAmount());
+        response.setPaymentStatus(payment.getStatus().name());
+        response.setBookingStatus(booking.getStatus().name());
+        response.setRefundStatus(RefundStatus.PENDING.name());
+        response.setRefundReason(refundEntity.getReason());
+        response.setRefundedAt(null);
+
+        return response;
+    }
+
+    // =========================================================================
+    // AUTO-CANCELLATION REFUND
+    // Called when a booking is cancelled due to missed payment deadlines.
+    // Applies the Roamaya cancellation policy refund tiers based on
+    // days remaining before departure.
+    //
+    // Policy:
+    //   > 30 days before departure → 90% refund
+    //   15–30 days → 50% refund
+    //   7–14 days → 25% refund
+    //   < 7 days → 0% refund (no refund)
+    // =========================================================================
+    @Override
+    @Transactional
+    public void initiateAutoCancellationRefund(Long bookingId, String reason) {
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found for refund: " + bookingId));
+
+        // Only refund if something was actually paid
+        if (booking.getAmountPaid() == null || booking.getAmountPaid().compareTo(BigDecimal.ZERO) <= 0) {
+            log.info("No refund needed for bookingId={} — no amount paid", bookingId);
+            return;
+        }
+
+        // Calculate refund percentage based on days before departure
+        Trip trip = booking.getTrip();
+        if (trip == null || trip.getStartDate() == null) {
+            log.warn("Cannot calculate refund — trip or start date missing. bookingId={}", bookingId);
+            return;
+        }
+
+        long daysBeforeDeparture = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), trip.getStartDate());
+        BigDecimal refundPercentage = calculateRefundPercentage(daysBeforeDeparture);
+
+        if (refundPercentage.compareTo(BigDecimal.ZERO) <= 0) {
+            log.info("No refund eligible for bookingId={}. daysBeforeDeparture={}", bookingId, daysBeforeDeparture);
+            return;
+        }
+
+        // Calculate total refund amount
+        BigDecimal totalRefundAmount = booking.getAmountPaid()
+                .multiply(refundPercentage)
+                .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+
+        log.info("Creating refund request (pending admin approval). bookingId={}, amountPaid={}, refundPercentage={}%, refundAmount={}",
+                bookingId, booking.getAmountPaid(), refundPercentage, totalRefundAmount);
+
+        // Find all PAID payments for this booking
+        List<Payment> paidPayments = paymentRepository.findByBookingIdAndStatus(bookingId, PaymentStatus.PAID);
+
+        if (paidPayments.isEmpty()) {
+            log.warn("No paid payments found for bookingId={}", bookingId);
+            return;
+        }
+
+        // Create PENDING refund records for each paid payment (awaiting admin approval)
+        BigDecimal remainingRefund = totalRefundAmount;
+
+        for (Payment payment : paidPayments) {
+            if (remainingRefund.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            // Refund amount for this payment (proportional or whatever is left)
+            BigDecimal paymentRefundAmount = payment.getAmount().min(remainingRefund);
+
+            // Check if refund already exists for this payment
+            boolean refundExists = refundRepository.existsByPaymentIdAndStatusIn(
+                    payment.getId(),
+                    List.of(RefundStatus.PENDING, RefundStatus.APPROVED, RefundStatus.PROCESSED)
+            );
+            if (refundExists) {
+                log.info("Refund already exists for paymentId={}, skipping", payment.getId());
+                continue;
+            }
+
+            // Create refund record in PENDING status (requires admin approval)
+            Refund refund = new Refund();
+            refund.setBooking(booking);
+            refund.setPayment(payment);
+            refund.setOriginalAmount(payment.getAmount());
+            refund.setRefundAmount(paymentRefundAmount);
+            refund.setRefundType(paymentRefundAmount.compareTo(payment.getAmount()) >= 0
+                    ? RefundType.FULL : RefundType.PARTIAL);
+            refund.setStatus(RefundStatus.PENDING);
+            refund.setReason(reason);
+            refund.setAdminNotes("Auto-generated. Refund tier: " + refundPercentage + "% (" + daysBeforeDeparture + " days before departure)");
+            refund.setRequestedAt(LocalDateTime.now());
+            refundRepository.save(refund);
+
+            remainingRefund = remainingRefund.subtract(paymentRefundAmount);
+
+            log.info("Refund request created (PENDING admin approval). paymentId={}, refundAmount={}",
+                    payment.getId(), paymentRefundAmount);
+        }
+
+        // Update booking payment status to indicate refund is pending
+        booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.REFUNDED);
+        bookingRepository.save(booking);
+
+        log.info("Refund request(s) submitted for bookingId={}. Total refund amount: {} (awaiting admin approval)",
+                bookingId, totalRefundAmount);
+    }
+
+    /**
+     * Admin approves and processes a pending refund via Razorpay.
+     */
+    @Override
+    @Transactional
+    public void approveAndProcessRefund(Long refundId, Long adminUserId) {
+
+        Refund refund = refundRepository.findById(refundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Refund not found: " + refundId));
+
+        if (refund.getStatus() != RefundStatus.PENDING) {
+            throw new BadRequestException("Refund is not in PENDING status. Current: " + refund.getStatus());
+        }
+
+        Payment payment = refund.getPayment();
+        if (payment == null) {
+            throw new BadRequestException("No payment linked to this refund");
+        }
+
+        if (payment.getRazorpayPaymentId() == null || payment.getRazorpayPaymentId().isBlank()) {
+            throw new BadRequestException("Cannot process refund — Razorpay payment ID missing");
+        }
+
+        // Mark as APPROVED
+        User admin = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin user not found"));
+        refund.setProcessedBy(admin);
+        refund.setStatus(RefundStatus.APPROVED);
+        refundRepository.save(refund);
+
+        // Process via Razorpay
         try {
-            // 11. Create full refund request via Razorpay (amount in paise)
             JSONObject refundRequest = new JSONObject();
-            refundRequest.put("amount", payment.getAmount().multiply(BigDecimal.valueOf(100)).intValue());
+            refundRequest.put("amount", refund.getRefundAmount().multiply(BigDecimal.valueOf(100)).intValue());
 
             JSONObject notes = new JSONObject();
-            notes.put("bookingId", booking.getId());
-            notes.put("reason", refundEntity.getReason());
+            notes.put("bookingId", refund.getBooking().getId());
+            notes.put("reason", refund.getReason());
+            notes.put("approvedBy", adminUserId);
             refundRequest.put("notes", notes);
 
-            // 12. Call Razorpay refund API
             com.razorpay.Refund razorpayRefund = razorpayClient.payments.refund(
                     payment.getRazorpayPaymentId(), refundRequest);
 
-            // 13. Update Refund entity with Razorpay response
-            refundEntity.setRazorpayRefundId(razorpayRefund.get("id").toString());
-            refundEntity.setStatus(RefundStatus.PROCESSED);
-            refundEntity.setProcessedAt(LocalDateTime.now());
-            refundRepository.save(refundEntity);
+            refund.setRazorpayRefundId(razorpayRefund.get("id").toString());
+            refund.setStatus(RefundStatus.PROCESSED);
+            refund.setProcessedAt(LocalDateTime.now());
+            refundRepository.save(refund);
 
-            // 14. Update Payment status
+            // Mark payment as refunded
             payment.setStatus(PaymentStatus.REFUNDED);
             paymentRepository.save(payment);
 
-            // 15. Update Booking
-            booking.setStatus(BookingStatus.CANCELLED);
-            booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.REFUNDED);
-            booking.setCancelledAt(LocalDateTime.now());
-            bookingRepository.save(booking);
-
-            // 16. Release seats
-            Integer currentBookedSeats = trip.getBookedSeats() == null ? 0 : trip.getBookedSeats();
-            Integer seatsToRelease = booking.getSeatsBooked() == null ? 0 : booking.getSeatsBooked();
-            int updatedBookedSeats = Math.max(0, currentBookedSeats - seatsToRelease);
-            trip.setBookedSeats(updatedBookedSeats);
-            tripRepository.save(trip);
-
-            // 17. Build response
-            RefundResponse response = new RefundResponse();
-            response.setBookingId(booking.getId());
-            response.setPaymentId(payment.getId());
-            response.setRazorpayPaymentId(payment.getRazorpayPaymentId());
-            response.setRazorpayRefundId(refundEntity.getRazorpayRefundId());
-            response.setRefundedAmount(refundEntity.getRefundAmount());
-            response.setPaymentStatus(payment.getStatus().name());
-            response.setBookingStatus(booking.getStatus().name());
-            response.setRefundReason(refundEntity.getReason());
-            response.setRefundedAt(refundEntity.getProcessedAt());
-
-            return response;
+            log.info("Refund approved and processed. refundId={}, paymentId={}, amount={}, razorpayRefundId={}",
+                    refundId, payment.getId(), refund.getRefundAmount(), refund.getRazorpayRefundId());
 
         } catch (Exception ex) {
-            // Rollback: mark refund as failed, restore payment status
-            refundEntity.setStatus(RefundStatus.FAILED);
-            refundRepository.save(refundEntity);
+            refund.setStatus(RefundStatus.FAILED);
+            refund.setAdminNotes(refund.getAdminNotes() + " | Razorpay failed: " + ex.getMessage());
+            refundRepository.save(refund);
 
-            payment.setStatus(PaymentStatus.PAID);
-            paymentRepository.save(payment);
+            log.error("Razorpay refund failed for refundId={}: {}", refundId, ex.getMessage());
+            throw new BadRequestException("Refund processing failed: " + ex.getMessage());
+        }
+    }
 
-            throw new BadRequestException("Refund failed: " + ex.getMessage());
+    /**
+     * Admin rejects a pending refund.
+     */
+    @Override
+    @Transactional
+    public void rejectRefund(Long refundId, Long adminUserId, String rejectionReason) {
+
+        Refund refund = refundRepository.findById(refundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Refund not found: " + refundId));
+
+        if (refund.getStatus() != RefundStatus.PENDING) {
+            throw new BadRequestException("Refund is not in PENDING status. Current: " + refund.getStatus());
+        }
+
+        User admin = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin user not found"));
+
+        refund.setProcessedBy(admin);
+        refund.setStatus(RefundStatus.REJECTED);
+        refund.setAdminNotes(rejectionReason);
+        refund.setProcessedAt(LocalDateTime.now());
+        refundRepository.save(refund);
+
+        log.info("Refund rejected. refundId={}, adminId={}, reason={}", refundId, adminUserId, rejectionReason);
+    }
+
+    /**
+     * Determines refund percentage based on Roamaya cancellation policy.
+     *
+     * > 30 days before departure → 90%
+     * 15–30 days → 50%
+     * 7–14 days → 25%
+     * < 7 days → 0%
+     */
+    private BigDecimal calculateRefundPercentage(long daysBeforeDeparture) {
+        if (daysBeforeDeparture > 30) {
+            return new BigDecimal("90");
+        } else if (daysBeforeDeparture >= 15) {
+            return new BigDecimal("50");
+        } else if (daysBeforeDeparture >= 7) {
+            return new BigDecimal("25");
+        } else {
+            return BigDecimal.ZERO;
         }
     }
 }

@@ -5,9 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourly.booking.repository.BookingRepository;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.payment.entity.Payment;
+import com.tourly.payment.entity.PaymentStage;
+import com.tourly.payment.enums.PaymentStageStatus;
 import com.tourly.payment.enums.PaymentStatus;
 import com.tourly.payment.repository.PaymentRepository;
+import com.tourly.payment.repository.PaymentStageRepository;
 import com.tourly.payment.service.PaymentWebhookService;
+import com.tourly.notification.service.PaymentNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,7 +29,9 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
     private final ObjectMapper objectMapper;
     private final PaymentRepository paymentRepository;
+    private final PaymentStageRepository paymentStageRepository;
     private final BookingRepository bookingRepository;
+    private final PaymentNotificationService paymentNotificationService;
 
     @Value("${razorpay.webhook.secret}")
     private String webhookSecret;
@@ -33,11 +39,15 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
     public PaymentWebhookServiceImpl(
             ObjectMapper objectMapper,
             PaymentRepository paymentRepository,
-            BookingRepository bookingRepository
+            PaymentStageRepository paymentStageRepository,
+            BookingRepository bookingRepository,
+            PaymentNotificationService paymentNotificationService
     ) {
         this.objectMapper = objectMapper;
         this.paymentRepository = paymentRepository;
+        this.paymentStageRepository = paymentStageRepository;
         this.bookingRepository = bookingRepository;
+        this.paymentNotificationService = paymentNotificationService;
     }
 
     @Override
@@ -133,15 +143,43 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
 
         payment.setRazorpayPaymentId(razorpayPaymentId);
         payment.setStatus(PaymentStatus.PAID);
+        payment.setPaidAt(java.time.LocalDateTime.now());
         paymentRepository.save(payment);
 
-        var booking = payment.getBooking();
-        if (booking != null) {
-            booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.PARTIALLY_PAID);
-            booking.setStatus(com.tourly.booking.enums.BookingStatus.CONFIRMED);
-            bookingRepository.save(booking);
+        // Update payment stage
+        PaymentStage stage = payment.getPaymentStage();
+        if (stage != null && stage.getStatus() != PaymentStageStatus.PAID) {
+            stage.setStatus(PaymentStageStatus.PAID);
+            stage.setPaidAt(java.time.LocalDateTime.now());
+            paymentStageRepository.save(stage);
+            log.info("Payment stage {} marked PAID via webhook for bookingId={}",
+                    stage.getStageNumber(), payment.getBooking() != null ? payment.getBooking().getId() : null);
+        }
 
-            log.info("Booking confirmed via webhook for bookingId={}", booking.getId());
+        // Update booking
+        var booking = payment.getBooking();
+        if (booking != null && stage != null) {
+            java.math.BigDecimal newAmountPaid = booking.getAmountPaid().add(stage.getAmount());
+            booking.setAmountPaid(newAmountPaid);
+            booking.setAmountPending(booking.getTotalPrice().subtract(newAmountPaid));
+
+            if (newAmountPaid.compareTo(booking.getTotalPrice()) >= 0) {
+                booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.FULLY_PAID);
+            } else {
+                booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.PARTIALLY_PAID);
+            }
+
+            // First stage confirms booking
+            if (stage.getStageNumber() == 1
+                    && booking.getStatus() == com.tourly.booking.enums.BookingStatus.PENDING) {
+                booking.setStatus(com.tourly.booking.enums.BookingStatus.CONFIRMED);
+                booking.setConfirmedAt(java.time.LocalDateTime.now());
+                booking.setExpiresAt(null);
+            }
+
+            bookingRepository.save(booking);
+            log.info("Booking updated via webhook. bookingId={}, amountPaid={}, paymentStatus={}",
+                    booking.getId(), newAmountPaid, booking.getPaymentStatus());
         }
 
         log.info("Payment marked CAPTURED via webhook for paymentId={}", payment.getId());
@@ -185,6 +223,15 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         if (booking != null) {
             booking.setPaymentStatus(com.tourly.booking.enums.PaymentStatus.PENDING);
             bookingRepository.save(booking);
+
+            // Notify traveler — Event 5: Payment Failed
+            PaymentStage stage = payment.getPaymentStage();
+            if (stage != null) {
+                String tripTitle = booking.getTrip() != null ? booking.getTrip().getTitle() : "Trip";
+                paymentNotificationService.notifyPaymentFailed(
+                        booking.getTraveler().getId(), booking.getId(),
+                        tripTitle, stage.getLabel(), stage.getAmount());
+            }
         }
 
         log.info("Payment marked FAILED via webhook for paymentId={}", payment.getId());

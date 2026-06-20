@@ -149,4 +149,20 @@ public class MessageController {
 
         return ResponseEntity.ok(ApiResponse.success("Conversations fetched successfully", response));
     }
+
+    // ========================================
+    // GET UNREAD MESSAGE COUNT (Any authenticated user)
+    // ========================================
+    @GetMapping("/unread-count")
+    @Operation(
+            summary = "Get unread message count",
+            description = "Returns the total number of unread messages for the authenticated user.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<ApiResponse<Long>> getUnreadCount() {
+
+        long count = messageService.getUnreadCount();
+
+        return ResponseEntity.ok(ApiResponse.success("Unread count fetched successfully", count));
+    }
 }

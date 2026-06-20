@@ -45,4 +45,9 @@ public interface MessageService {
      * ordered by most recent message descending.
      */
     List<ConversationResponse> getTravelerConversations();
+
+    /**
+     * Get the count of unread messages for the authenticated user.
+     */
+    long getUnreadCount();
 }

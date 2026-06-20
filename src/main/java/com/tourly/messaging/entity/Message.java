@@ -32,6 +32,9 @@ public class Message {
     @Column(name = "is_read", nullable = false)
     private Boolean isRead = false;
 
+    @Column(name = "contact_masked", nullable = false)
+    private Boolean contactMasked = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -55,6 +58,8 @@ public class Message {
     public void setContent(String content) { this.content = content; }
     public Boolean getIsRead() { return isRead; }
     public void setIsRead(Boolean isRead) { this.isRead = isRead; }
+    public Boolean getContactMasked() { return contactMasked; }
+    public void setContactMasked(Boolean contactMasked) { this.contactMasked = contactMasked; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
