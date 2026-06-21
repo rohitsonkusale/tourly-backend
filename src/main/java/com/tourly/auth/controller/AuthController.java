@@ -84,4 +84,21 @@ public class AuthController {
         UserResponse response = authService.getCurrentUser(currentUser.getId());
         return ResponseEntity.ok(ApiResponse.success("User profile fetched successfully", response));
     }
+
+    @PostMapping("/refresh")
+    @Operation(
+            summary = "Refresh JWT token",
+            description = "Accepts a valid refresh token and returns a new access token + rotated refresh token"
+    )
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+            @RequestBody java.util.Map<String, String> request) {
+
+        String refreshToken = request.get("refreshToken");
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new com.tourly.common.exception.BadRequestException("Refresh token is required");
+        }
+
+        AuthResponse response = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed successfully", response));
+    }
 }

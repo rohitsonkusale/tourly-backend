@@ -23,11 +23,14 @@ public class JwtService {
 
     private final SecretKey key;
     private final long expiration;
+    private final long refreshExpiration;
 
     public JwtService(@Value("${jwt.secret}") String secret,
-                      @Value("${jwt.expiration}") long expiration) {
+                      @Value("${jwt.expiration}") long expiration,
+                      @Value("${jwt.refresh-expiration}") long refreshExpiration) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expiration = expiration;
+        this.refreshExpiration = refreshExpiration;
     }
 
     // ===========================
@@ -48,6 +51,40 @@ public class JwtService {
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(key)
                 .compact();
+    }
+
+    // ===========================
+    // GENERATE REFRESH TOKEN (longer expiry)
+    // ===========================
+    public String generateRefreshToken(User user) {
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId());
+        claims.put("type", "refresh");
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject(user.getEmail())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + refreshExpiration))
+                .signWith(key)
+                .compact();
+    }
+
+    // ===========================
+    // CHECK IF TOKEN IS REFRESH TYPE
+    // ===========================
+    public boolean isRefreshToken(String token) {
+        try {
+            Object type = extractAllClaims(token).get("type");
+            return "refresh".equals(type);
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            // Even if expired, check the claims to determine token type
+            Object type = e.getClaims().get("type");
+            return "refresh".equals(type);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // ===========================
@@ -118,7 +155,11 @@ public class JwtService {
     // CHECK IF TOKEN EXPIRED
     // ===========================
     public boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        try {
+            return extractExpiration(token).before(new Date());
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            return true;
+        }
     }
 
     // ===========================

@@ -15,4 +15,6 @@ public interface AuthService {
     AuthResponse googleAuth(GoogleAuthRequest request);
 
     UserResponse getCurrentUser(Long userId);
+
+    AuthResponse refreshToken(String refreshToken);
 }

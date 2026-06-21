@@ -211,10 +211,11 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        // Generate JWT token
+        // Generate JWT tokens
         String token = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
 
-        return new AuthResponse(token, UserMapper.toResponse(user));
+        return new AuthResponse(token, refreshToken, UserMapper.toResponse(user));
     }
 
     // ===========================
@@ -315,7 +316,8 @@ public class AuthServiceImpl implements AuthService {
             newUser.setLastLoginAt(LocalDateTime.now());
             newUser = userRepository.save(newUser);
             String token = jwtService.generateToken(newUser);
-            return new AuthResponse(token, UserMapper.toResponse(newUser));
+            String refreshToken = jwtService.generateRefreshToken(newUser);
+            return new AuthResponse(token, refreshToken, UserMapper.toResponse(newUser));
         }
 
         User user = userOpt.get();
@@ -349,10 +351,54 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         user = userRepository.save(user);
 
-        // Generate JWT token (only for ACTIVE accounts — travelers)
+        // Generate JWT tokens (only for ACTIVE accounts — travelers)
         String token = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
 
-        return new AuthResponse(token, UserMapper.toResponse(user));
+        return new AuthResponse(token, refreshToken, UserMapper.toResponse(user));
+    }
+
+    // ===========================
+    // REFRESH TOKEN
+    // ===========================
+    @Override
+    public AuthResponse refreshToken(String refreshToken) {
+        // 1. Validate it's actually a refresh token (works even if expired)
+        if (!jwtService.isRefreshToken(refreshToken)) {
+            throw new BadRequestException("Invalid token. Please provide a valid refresh token.");
+        }
+
+        // 2. Check if it's expired
+        if (jwtService.isTokenExpired(refreshToken)) {
+            throw new BadRequestException("Your session has expired. Please login again.");
+        }
+
+        // 3. Extract user email and find the user
+        String email;
+        try {
+            email = jwtService.extractEmail(refreshToken);
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid refresh token. Please login again.");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BadRequestException("Account not found. Please login again."));
+
+        // 4. Block deleted accounts
+        if (user.getDeletedAt() != null) {
+            throw new BadRequestException("This account has been deleted.");
+        }
+
+        // 5. Block inactive/unapproved accounts
+        if (user.getAccountStatus() != AccountStatus.ACTIVE && !Boolean.TRUE.equals(user.getAdminApproved())) {
+            throw new BadRequestException("Your account is no longer active. Please contact support.");
+        }
+
+        // 6. Issue new access token + rotate refresh token
+        String newAccessToken = jwtService.generateToken(user);
+        String newRefreshToken = jwtService.generateRefreshToken(user);
+
+        return new AuthResponse(newAccessToken, newRefreshToken, UserMapper.toResponse(user));
     }
 
     @Override
