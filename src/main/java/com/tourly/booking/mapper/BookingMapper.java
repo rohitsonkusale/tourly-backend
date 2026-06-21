@@ -23,6 +23,8 @@ public class BookingMapper {
             response.setBookingStatus(booking.getStatus().name());
         }
 
+        response.setCreatedAt(booking.getCreatedAt());
+
         return response;
     }
 }

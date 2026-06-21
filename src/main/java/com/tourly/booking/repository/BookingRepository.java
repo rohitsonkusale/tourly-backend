@@ -20,6 +20,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // =====================================
     List<Booking> findByTravelerId(Long travelerId);
 
+    List<Booking> findByTravelerIdOrderByCreatedAtDesc(Long travelerId);
+
     // =====================================
     // BOOKINGS FOR A TRIP
     // =====================================

@@ -1,6 +1,7 @@
 package com.tourly.booking.dto.response;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class BookingResponse {
 
@@ -13,6 +14,8 @@ public class BookingResponse {
     private BigDecimal totalPrice;
 
     private String bookingStatus;
+
+    private LocalDateTime createdAt;
 
     // Getters & Setters
 
@@ -84,6 +87,20 @@ public class BookingResponse {
      */
     public void setBookingStatus(String bookingStatus) {
         this.bookingStatus = bookingStatus;
+    }
+
+    /**
+     * @return LocalDateTime return the createdAt
+     */
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    /**
+     * @param createdAt the createdAt to set
+     */
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
 }
