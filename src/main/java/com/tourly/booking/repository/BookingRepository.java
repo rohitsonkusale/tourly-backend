@@ -20,6 +20,16 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // =====================================
     List<Booking> findByTravelerId(Long travelerId);
 
+    @Query("SELECT b FROM Booking b " +
+           "LEFT JOIN FETCH b.trip t " +
+           "LEFT JOIN FETCH t.destination " +
+           "LEFT JOIN FETCH t.media " +
+           "LEFT JOIN FETCH t.planner " +
+           "LEFT JOIN FETCH t.host " +
+           "WHERE b.traveler.id = :travelerId " +
+           "ORDER BY b.createdAt DESC")
+    List<Booking> findByTravelerIdWithTripDetails(@Param("travelerId") Long travelerId);
+
     List<Booking> findByTravelerIdOrderByCreatedAtDesc(Long travelerId);
 
     // =====================================

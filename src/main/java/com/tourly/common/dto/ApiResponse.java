@@ -28,6 +28,10 @@ public class ApiResponse<T> {
         return new ApiResponse<>(true, message, null, LocalDateTime.now());
     }
 
+    public static <T> ApiResponse<T> error(String message, int statusCode) {
+        return new ApiResponse<>(false, message, null, LocalDateTime.now());
+    }
+
     public boolean isSuccess() {
         return success;
     }

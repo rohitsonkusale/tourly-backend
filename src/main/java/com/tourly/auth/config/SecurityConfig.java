@@ -22,6 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.tourly.auth.security.CustomAccessDeniedHandler;
 import com.tourly.auth.security.JwtAuthenticationEntryPoint;
 import com.tourly.auth.security.JwtAuthenticationFilter;
+import com.tourly.auth.security.RateLimitingFilter;
 
 @Configuration
 @EnableMethodSecurity
@@ -30,16 +31,19 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
+    private final RateLimitingFilter rateLimitingFilter;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
     public SecurityConfig(JwtAuthenticationFilter jwtFilter,
                           JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
-                          CustomAccessDeniedHandler customAccessDeniedHandler) {
+                          CustomAccessDeniedHandler customAccessDeniedHandler,
+                          RateLimitingFilter rateLimitingFilter) {
         this.jwtFilter = jwtFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
         this.customAccessDeniedHandler = customAccessDeniedHandler;
+        this.rateLimitingFilter = rateLimitingFilter;
     }
 
     @Bean
@@ -70,6 +74,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

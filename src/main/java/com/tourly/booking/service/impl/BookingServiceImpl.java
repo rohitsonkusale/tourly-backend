@@ -230,7 +230,7 @@ public class BookingServiceImpl implements BookingService {
 
         User traveler = getCurrentUser();
 
-        List<Booking> bookings = bookingRepository.findByTravelerIdOrderByCreatedAtDesc(traveler.getId());
+        List<Booking> bookings = bookingRepository.findByTravelerIdWithTripDetails(traveler.getId());
 
         return bookings.stream()
                 .map(BookingMapper::toResponse)

@@ -7,6 +7,7 @@ import com.tourly.notification.entity.Notification;
 import com.tourly.notification.enums.NotificationTargetType;
 import com.tourly.notification.enums.NotificationType;
 import com.tourly.notification.repository.NotificationRepository;
+import com.tourly.notification.service.EmailService;
 import com.tourly.notification.service.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,12 +20,15 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     public NotificationServiceImpl(
             NotificationRepository notificationRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            EmailService emailService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     @Override
@@ -34,6 +38,7 @@ public class NotificationServiceImpl implements NotificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found for notification"));
 
+        // 1. Save in-app notification
         Notification notification = new Notification();
         notification.setUser(user);
         notification.setTitle(title);
@@ -46,10 +51,11 @@ public class NotificationServiceImpl implements NotificationService {
 
         log.info("Notification sent: userId={}, type={}, title={}", userId, type, title);
 
-        // TODO: When email provider is configured, dispatch email here.
-        // Example: emailService.sendTransactional(user.getEmail(), title, message);
-
-        // TODO: When push notifications are configured, dispatch push here.
-        // Example: pushService.send(userId, title, message);
+        // 2. Dispatch transactional email (async, non-blocking)
+        try {
+            emailService.sendStyledEmail(user.getEmail(), title, title, message);
+        } catch (Exception e) {
+            log.warn("Email dispatch failed for userId={}: {}", userId, e.getMessage());
+        }
     }
 }
