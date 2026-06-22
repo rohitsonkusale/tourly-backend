@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.tourly.trip.entity.Trip;
+import com.tourly.trip.enums.TripCategory;
 import com.tourly.trip.enums.TripStatus;
 
 import jakarta.persistence.LockModeType;
@@ -73,6 +74,44 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
             @Param("host") String host,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
+            @Param("status") TripStatus status,
+            Pageable pageable
+    );
+
+    // ========================================
+    // ADVANCED SEARCH (FULL FILTER SUPPORT)
+    // Supports price range, category, difficulty,
+    // tripType, startsFrom, and seats-available
+    // ========================================
+    @Query("""
+        SELECT t FROM Trip t
+        WHERE t.active = true
+          AND t.deleted = false
+          AND t.status = :status
+          AND (:destination IS NULL OR LOWER(t.destination.city) LIKE LOWER(CONCAT('%', :destination, '%')))
+          AND (:host IS NULL OR LOWER(t.planner.fullName) LIKE LOWER(CONCAT('%', :host, '%')))
+          AND (:startDate IS NULL OR t.startDate >= :startDate)
+          AND (:endDate IS NULL OR t.endDate <= :endDate)
+          AND (:priceMin IS NULL OR t.basePrice >= :priceMin)
+          AND (:priceMax IS NULL OR t.basePrice <= :priceMax)
+          AND (:category IS NULL OR t.category = :category)
+          AND (:difficulty IS NULL OR LOWER(t.difficulty) = LOWER(:difficulty))
+          AND (:tripType IS NULL OR LOWER(t.tripType) LIKE LOWER(CONCAT('%', :tripType, '%')))
+          AND (:startsFrom IS NULL OR LOWER(t.startsFrom) LIKE LOWER(CONCAT('%', :startsFrom, '%')))
+          AND (:seatsAvailable = false OR (t.totalSeats - t.bookedSeats) > 0)
+    """)
+    Page<Trip> searchTripsAdvanced(
+            @Param("destination") String destination,
+            @Param("host") String host,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("priceMin") java.math.BigDecimal priceMin,
+            @Param("priceMax") java.math.BigDecimal priceMax,
+            @Param("category") TripCategory category,
+            @Param("difficulty") String difficulty,
+            @Param("tripType") String tripType,
+            @Param("startsFrom") String startsFrom,
+            @Param("seatsAvailable") boolean seatsAvailable,
             @Param("status") TripStatus status,
             Pageable pageable
     );

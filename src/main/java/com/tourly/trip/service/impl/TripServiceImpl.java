@@ -487,6 +487,48 @@ public class TripServiceImpl implements TripService {
     }
 
     // ========================================
+    // ADVANCED SEARCH (FULL FILTER SUPPORT)
+    // ========================================
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TripResponse> searchTripsAdvanced(
+            String destination,
+            String host,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal priceMin,
+            BigDecimal priceMax,
+            String category,
+            String difficulty,
+            String tripType,
+            String startsFrom,
+            boolean seatsAvailable,
+            Pageable pageable) {
+
+        if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
+            throw new BadRequestException("End date cannot be before start date.");
+        }
+
+        // Parse category string to enum (null if invalid/empty)
+        com.tourly.trip.enums.TripCategory categoryEnum = null;
+        if (category != null && !category.isBlank()) {
+            try {
+                categoryEnum = com.tourly.trip.enums.TripCategory.valueOf(category.toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                // Invalid category value — treat as no filter
+            }
+        }
+
+        return tripRepository
+                .searchTripsAdvanced(
+                        destination, host, startDate, endDate,
+                        priceMin, priceMax, categoryEnum,
+                        difficulty, tripType, startsFrom,
+                        seatsAvailable, TripStatus.PUBLISHED, pageable)
+                .map(TripMapper::mapToResponse);
+    }
+
+    // ========================================
     // MY TRIPS - ALL
     // ========================================
     @Override

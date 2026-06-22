@@ -29,6 +29,21 @@ public interface TripService {
             Pageable pageable
     );
 
+    Page<TripResponse> searchTripsAdvanced(
+            String destination,
+            String host,
+            LocalDate startDate,
+            LocalDate endDate,
+            java.math.BigDecimal priceMin,
+            java.math.BigDecimal priceMax,
+            String category,
+            String difficulty,
+            String tripType,
+            String startsFrom,
+            boolean seatsAvailable,
+            Pageable pageable
+    );
+
     TripResponse updateTrip(Long tripId, UpdateTripRequest request);
 
     void deleteTrip(Long tripId);

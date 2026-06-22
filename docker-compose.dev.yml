@@ -1,0 +1,30 @@
+# ============================================
+# Development Overrides — docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Exposes ports directly, no Nginx/SSL, enables debug logging
+# ============================================
+
+services:
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      LOG_LEVEL_APP: DEBUG
+      LOG_LEVEL_SECURITY: DEBUG
+      JPA_SHOW_SQL: "true"
+      FLYWAY_CLEAN_DISABLED: "false"
+      SWAGGER_ENABLED: "true"
+    ports:
+      - "8080:8080"
+      - "5005:5005"  # Remote debug port
+    command: >
+      sh -c "java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      -Xms256m -Xmx512m -jar app.jar"
+
+  frontend:
+    ports:
+      - "3000:3000"
+
+  nginx:
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d/dev.conf.example:/etc/nginx/conf.d/default.conf:ro

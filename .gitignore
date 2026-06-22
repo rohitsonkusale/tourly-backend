@@ -51,3 +51,8 @@ hs_err_pid*
 .env
 .env.local
 .env.production
+
+### Docker / Deployment Secrets ###
+certbot/
+nginx/conf.d/default.conf
+!nginx/conf.d/dev.conf.example

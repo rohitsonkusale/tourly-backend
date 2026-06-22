@@ -1,0 +1,35 @@
+# Build artifacts
+target/
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# Logs
+*.log
+hs_err_pid*
+replay_pid*
+
+# Env files (secrets)
+.env
+.env.local
+.env.production
+
+# Git
+.git/
+.gitattributes
+
+# SQL scripts (dev only)
+*.sql
+
+# Misc
+out.txt
+CheckDb.java
+FixDb.java
+docs/

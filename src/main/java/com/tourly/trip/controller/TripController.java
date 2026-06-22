@@ -122,6 +122,58 @@ public class TripController {
     }
 
     // ========================================
+    // ADVANCED SEARCH (PUBLIC — FULL FILTER SUPPORT)
+    // ========================================
+    @GetMapping("/search/filter")
+    @Operation(
+            summary = "Advanced trip search with full filters",
+            description = "Searches public trips using destination, host, dates, price range, category, difficulty, trip type, departure city, and seat availability"
+    )
+    public ResponseEntity<ApiResponse<Page<TripResponse>>> searchTripsAdvanced(
+
+            @RequestParam(required = false)
+            @Size(max = 100, message = "Destination filter cannot exceed 100 characters")
+            String destination,
+
+            @RequestParam(required = false)
+            @Size(max = 100, message = "Host filter cannot exceed 100 characters")
+            String host,
+
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+
+            @RequestParam(required = false) java.math.BigDecimal priceMin,
+            @RequestParam(required = false) java.math.BigDecimal priceMax,
+
+            @RequestParam(required = false)
+            @Size(max = 50, message = "Category filter cannot exceed 50 characters")
+            String category,
+
+            @RequestParam(required = false)
+            @Size(max = 50, message = "Difficulty filter cannot exceed 50 characters")
+            String difficulty,
+
+            @RequestParam(required = false)
+            @Size(max = 100, message = "Trip type filter cannot exceed 100 characters")
+            String tripType,
+
+            @RequestParam(required = false)
+            @Size(max = 100, message = "Starts from filter cannot exceed 100 characters")
+            String startsFrom,
+
+            @RequestParam(required = false, defaultValue = "false") boolean seatsAvailable,
+
+            @Parameter(hidden = true) Pageable pageable) {
+
+        Page<TripResponse> response = tripService.searchTripsAdvanced(
+                destination, host, startDate, endDate,
+                priceMin, priceMax, category, difficulty,
+                tripType, startsFrom, seatsAvailable, pageable);
+
+        return ResponseEntity.ok(ApiResponse.success("Trips fetched successfully", response));
+    }
+
+    // ========================================
     // MY TRIPS - ALL
     // ========================================
     @GetMapping("/my")
