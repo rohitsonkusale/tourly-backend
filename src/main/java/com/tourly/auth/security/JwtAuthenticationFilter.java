@@ -13,6 +13,7 @@ import com.tourly.auth.service.JwtService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -34,32 +35,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
+        // Try to extract token: 1) httpOnly cookie, 2) Authorization header
+        String token = extractTokenFromCookie(request);
 
-        // 1️⃣ No auth header or invalid prefix → skip
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+        if (token == null) {
+            token = extractTokenFromHeader(request);
         }
 
-        // 2️⃣ Extract token safely
-        String token = authHeader.substring(7).trim();
-
-        if (token.isEmpty()) {
+        // No token found → skip authentication
+        if (token == null || token.isEmpty()) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            // 3️⃣ Extract email from token
+            // Extract email from token
             String userEmail = jwtService.extractEmail(token);
 
-            // 4️⃣ Only authenticate if not already authenticated
+            // Only authenticate if not already authenticated
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
 
-                // 5️⃣ Validate token against user details
+                // Validate token against user details
                 if (jwtService.validateToken(token, userDetails)) {
 
                     UsernamePasswordAuthenticationToken authentication =
@@ -78,12 +76,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception ex) {
-            // IMPORTANT:
             // Do NOT break request flow for invalid/expired/malformed token.
-            // Leave SecurityContext empty and continue.
             SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Extract JWT from the httpOnly 'access_token' cookie.
+     */
+    private String extractTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie cookie : cookies) {
+            if ("access_token".equals(cookie.getName())) {
+                String value = cookie.getValue();
+                return (value != null && !value.isBlank()) ? value.trim() : null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract JWT from the Authorization: Bearer header (backward compatibility).
+     */
+    private String extractTokenFromHeader(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7).trim();
+            return token.isEmpty() ? null : token;
+        }
+        return null;
     }
 }

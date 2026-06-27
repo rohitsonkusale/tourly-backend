@@ -15,9 +15,19 @@ public interface RefundService {
     void initiateAutoCancellationRefund(Long bookingId, String reason);
 
     /**
-     * Admin approves a pending refund and processes it via Razorpay.
+     * Creates refund request(s) in PENDING status with bank details for manual transfer.
+     * Called by traveler-initiated cancellation flow.
      */
-    void approveAndProcessRefund(Long refundId, Long adminUserId);
+    void initiateAutoCancellationRefund(Long bookingId, String reason,
+                                         String accountHolderName, String accountNumber,
+                                         String ifscCode, String bankName);
+
+    /**
+     * Admin marks a pending refund as completed after manual bank transfer.
+     * Records the UTR/transaction reference as proof of payment.
+     */
+    void approveAndProcessRefund(Long refundId, Long adminUserId,
+                                  String transactionReference, String paymentMethod, String adminNotes);
 
     /**
      * Admin rejects a pending refund.

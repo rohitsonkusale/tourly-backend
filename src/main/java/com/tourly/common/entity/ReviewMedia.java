@@ -1,5 +1,6 @@
 package com.tourly.common.entity;
 
+import com.tourly.review.entity.Review;
 import com.tourly.trip.enums.MediaType;
 import jakarta.persistence.*;
 

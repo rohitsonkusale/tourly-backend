@@ -15,10 +15,13 @@ import com.tourly.userprofile.entity.UserProfile;
 import com.tourly.userprofile.mapper.UserProfileMapper;
 import com.tourly.userprofile.repository.UserProfileRepository;
 import com.tourly.userprofile.service.UserProfileService;
+import com.tourly.auth.entity.RoleName;
 import com.tourly.auth.repository.UserRepository;
 import com.tourly.auth.entity.User;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
+import com.tourly.review.enums.TargetType;
+import com.tourly.review.service.ReviewService;
 
 @Service
 @Transactional
@@ -26,10 +29,13 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserProfileRepository profileRepo;
     private final UserRepository userRepo;
+    private final ReviewService reviewService;
 
-    public UserProfileServiceImpl(UserProfileRepository profileRepo, UserRepository userRepo) {
+    public UserProfileServiceImpl(UserProfileRepository profileRepo, UserRepository userRepo,
+                                  ReviewService reviewService) {
         this.profileRepo = profileRepo;
         this.userRepo = userRepo;
+        this.reviewService = reviewService;
     }
 
     // ==============================
@@ -128,6 +134,18 @@ public class UserProfileServiceImpl implements UserProfileService {
         profile.setContactEmail(null);
         profile.setContactPhone(null);
 
-        return UserProfileMapper.toResponse(profile);
+        UserProfileResponse response = UserProfileMapper.toResponse(profile);
+
+        // Enrich with review data for hosts and planners
+        RoleName roleName = user.getRole() != null ? user.getRole().getName() : null;
+        if (roleName == RoleName.HOST) {
+            response.setAverageRating(reviewService.getAverageRating(userId, TargetType.HOST));
+            response.setReviewCount(reviewService.getReviewCount(userId, TargetType.HOST));
+        } else if (roleName == RoleName.PLANNER) {
+            response.setAverageRating(reviewService.getAverageRating(userId, TargetType.PLANNER));
+            response.setReviewCount(reviewService.getReviewCount(userId, TargetType.PLANNER));
+        }
+
+        return response;
     }
 }

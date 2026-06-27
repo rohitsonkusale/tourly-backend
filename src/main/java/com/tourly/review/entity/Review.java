@@ -1,9 +1,9 @@
-package com.tourly.common.entity;
+package com.tourly.review.entity;
 
 import com.tourly.auth.entity.User;
 import com.tourly.booking.entity.Booking;
-import com.tourly.common.enums.ReviewStatus;
-import com.tourly.common.enums.ReviewTargetType;
+import com.tourly.review.enums.ReviewStatus;
+import com.tourly.review.enums.TargetType;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -26,7 +26,7 @@ public class Review {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "target_type", nullable = false, length = 50)
-    private ReviewTargetType targetType;
+    private TargetType targetType;
 
     @Column(name = "target_id", nullable = false)
     private Long targetId;
@@ -39,7 +39,7 @@ public class Review {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
-    private ReviewStatus status = ReviewStatus.PENDING;
+    private ReviewStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -50,27 +50,49 @@ public class Review {
     public Review() {}
 
     @PrePersist
-    protected void onCreate() { LocalDateTime now = LocalDateTime.now(); createdAt = now; updatedAt = now; }
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+        if (this.status == null) {
+            this.status = ReviewStatus.PUBLISHED;
+        }
+    }
 
     @PreUpdate
-    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    // Getters & Setters
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
     public Booking getBooking() { return booking; }
     public void setBooking(Booking booking) { this.booking = booking; }
+
     public User getReviewer() { return reviewer; }
     public void setReviewer(User reviewer) { this.reviewer = reviewer; }
-    public ReviewTargetType getTargetType() { return targetType; }
-    public void setTargetType(ReviewTargetType targetType) { this.targetType = targetType; }
+
+    public TargetType getTargetType() { return targetType; }
+    public void setTargetType(TargetType targetType) { this.targetType = targetType; }
+
     public Long getTargetId() { return targetId; }
     public void setTargetId(Long targetId) { this.targetId = targetId; }
+
     public Integer getRating() { return rating; }
     public void setRating(Integer rating) { this.rating = rating; }
+
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
+
     public ReviewStatus getStatus() { return status; }
     public void setStatus(ReviewStatus status) { this.status = status; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

@@ -301,6 +301,10 @@ public class BookingServiceImpl implements BookingService {
         trip.setBookedSeats(Math.max(updatedSeats, 0));
         tripRepository.save(trip);
 
+        // Capture previous state for audit logging
+        String previousStatus = booking.getStatus().name();
+        String previousPaymentStatus = booking.getPaymentStatus().name();
+
         booking.setStatus(BookingStatus.CANCELLED);
 
         if (booking.getPaymentStatus() == PaymentStatus.FULLY_PAID
@@ -331,13 +335,21 @@ public class BookingServiceImpl implements BookingService {
             paymentStageRepository.saveAll(unpaidStages);
         }
 
-        log.info("Booking cancelled: bookingId={}, userId={}, stagesCancelled={}",
-                bookingId, currentUser.getId(), unpaidStages.size());
+        log.info("AUDIT | Booking cancelled: bookingId={}, userId={}, previousStatus={}, previousPaymentStatus={}, seatsReleased={}, stagesCancelled={}, amountPaid={}, refundEligible={}, hasBankDetails={}",
+                bookingId, currentUser.getId(), previousStatus, previousPaymentStatus,
+                booking.getSeatsBooked(), unpaidStages.size(),
+                booking.getAmountPaid(),
+                booking.getAmountPaid() != null && booking.getAmountPaid().compareTo(java.math.BigDecimal.ZERO) > 0,
+                request.getAccountHolderName() != null && !request.getAccountHolderName().isBlank());
 
         // Initiate refund for previously paid stages per cancellation policy
         if (booking.getAmountPaid() != null && booking.getAmountPaid().compareTo(java.math.BigDecimal.ZERO) > 0) {
             refundService.initiateAutoCancellationRefund(bookingId,
-                    request.getReason() != null ? request.getReason() : "Traveler-initiated cancellation");
+                    request.getReason() != null ? request.getReason() : "Traveler-initiated cancellation",
+                    request.getAccountHolderName(),
+                    request.getAccountNumber(),
+                    request.getIfscCode(),
+                    request.getBankName());
         }
     }
 

@@ -17,4 +17,8 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     boolean existsByPaymentIdAndStatusIn(Long paymentId, List<RefundStatus> statuses);
 
     long countByStatus(RefundStatus status);
+
+    List<Refund> findByStatusOrderByRequestedAtDesc(RefundStatus status);
+
+    List<Refund> findAllByOrderByRequestedAtDesc();
 }

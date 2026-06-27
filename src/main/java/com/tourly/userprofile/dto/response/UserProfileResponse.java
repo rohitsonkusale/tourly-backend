@@ -15,4 +15,8 @@ public class UserProfileResponse {
     private String socialLinks;
     private String preferredLanguage;
     private String timezone;
+
+    // Review data for public profiles (hosts and planners)
+    private Double averageRating;
+    private Long reviewCount;
 }

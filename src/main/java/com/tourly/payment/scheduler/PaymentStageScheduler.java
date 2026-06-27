@@ -12,8 +12,10 @@ import com.tourly.trip.entity.Trip;
 import com.tourly.trip.repository.TripRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -37,18 +39,21 @@ public class PaymentStageScheduler {
     private final TripRepository tripRepository;
     private final PaymentNotificationService paymentNotificationService;
     private final RefundService refundService;
+    private final PaymentStageScheduler self;
 
     public PaymentStageScheduler(
             PaymentStageRepository paymentStageRepository,
             BookingRepository bookingRepository,
             TripRepository tripRepository,
             PaymentNotificationService paymentNotificationService,
-            RefundService refundService) {
+            RefundService refundService,
+            @org.springframework.context.annotation.Lazy PaymentStageScheduler self) {
         this.paymentStageRepository = paymentStageRepository;
         this.bookingRepository = bookingRepository;
         this.tripRepository = tripRepository;
         this.paymentNotificationService = paymentNotificationService;
         this.refundService = refundService;
+        this.self = self;
     }
 
     // =========================================================================
@@ -133,10 +138,9 @@ public class PaymentStageScheduler {
     // Per policy: failure to pay within 72-hour window → automatic cancellation.
     // =========================================================================
     @Scheduled(cron = "0 15 * * * *") // Every hour at :15 (offset from Job 1 & 2)
-    @Transactional
     public void autoCancelOverdueBookings() {
 
-        // Find all stages currently marked OVERDUE
+        // Find all stages currently marked OVERDUE (read-only query, no transaction needed)
         var overdueStages = paymentStageRepository.findByStatus(PaymentStageStatus.OVERDUE);
 
         if (overdueStages.isEmpty()) {
@@ -152,64 +156,77 @@ public class PaymentStageScheduler {
         int cancelledCount = 0;
 
         for (Long bookingId : bookingIds) {
-            Booking booking = bookingRepository.findById(bookingId).orElse(null);
-
-            if (booking == null || booking.getStatus() == BookingStatus.CANCELLED) {
-                continue;
-            }
-
-            // Cancel the booking
-            booking.setStatus(BookingStatus.CANCELLED);
-            booking.setCancellationReason("Auto-cancelled: payment deadline missed");
-            booking.setCancelledAt(LocalDateTime.now());
-            booking.setUpdatedAt(LocalDateTime.now());
-            bookingRepository.save(booking);
-
-            // Release seats back to trip
-            Trip trip = booking.getTrip();
-            if (trip != null && booking.getSeatsBooked() != null) {
-                int newBookedSeats = Math.max(0, trip.getBookedSeats() - booking.getSeatsBooked());
-                trip.setBookedSeats(newBookedSeats);
-                tripRepository.save(trip);
-                log.info("Released {} seat(s) back to tripId={}", booking.getSeatsBooked(), trip.getId());
-            }
-
-            // Cancel all unpaid stages for this booking
-            List<PaymentStage> unpaidStages = paymentStageRepository
-                    .findByBookingIdAndStatusIn(bookingId, List.of(
-                            PaymentStageStatus.PENDING,
-                            PaymentStageStatus.INVOICE_SENT,
-                            PaymentStageStatus.OVERDUE
-                    ));
-
-            for (PaymentStage stage : unpaidStages) {
-                stage.setStatus(PaymentStageStatus.CANCELLED);
-            }
-            paymentStageRepository.saveAll(unpaidStages);
-
-            cancelledCount++;
-            log.warn("Booking auto-cancelled due to missed payment. bookingId={}", bookingId);
-
-            // Initiate refund for previously paid stages per cancellation policy
-            refundService.initiateAutoCancellationRefund(bookingId, "Auto-cancelled: payment deadline missed");
-
-            // Notify traveler — Event 7: Auto-Cancellation
-            String tripTitle = booking.getTrip() != null ? booking.getTrip().getTitle() : "Trip";
-            paymentNotificationService.notifyAutoCancellation(
-                    booking.getTraveler().getId(), bookingId, tripTitle);
-
-            // Notify host
-            var host = booking.getTrip() != null ? booking.getTrip().getHost() : null;
-            if (host == null && booking.getTrip() != null) host = booking.getTrip().getPlanner();
-            if (host != null) {
-                paymentNotificationService.notifyHostAutoCancellation(
-                        host.getId(), bookingId,
-                        booking.getTraveler().getFullName(), tripTitle);
+            try {
+                self.processOverdueBookingCancellation(bookingId);
+                cancelledCount++;
+            } catch (OptimisticLockingFailureException ex) {
+                // Booking was concurrently modified (e.g., user cancelled or paid) — skip gracefully
+                log.info("Skipping overdue booking (concurrent modification): bookingId={}", bookingId);
+            } catch (Exception ex) {
+                log.error("Failed to auto-cancel overdue booking: bookingId={}, error={}", bookingId, ex.getMessage());
             }
         }
 
         if (cancelledCount > 0) {
             log.info("Auto-cancelled {} booking(s) due to overdue payment stages", cancelledCount);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void processOverdueBookingCancellation(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId).orElse(null);
+
+        if (booking == null || booking.getStatus() == BookingStatus.CANCELLED
+                || booking.getStatus() == BookingStatus.COMPLETED) {
+            return;
+        }
+
+        // Cancel the booking
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancellationReason("Auto-cancelled: payment deadline missed");
+        booking.setCancelledAt(LocalDateTime.now());
+        booking.setUpdatedAt(LocalDateTime.now());
+        bookingRepository.save(booking);
+
+        // Release seats back to trip
+        Trip trip = booking.getTrip();
+        if (trip != null && booking.getSeatsBooked() != null) {
+            int newBookedSeats = Math.max(0, trip.getBookedSeats() - booking.getSeatsBooked());
+            trip.setBookedSeats(newBookedSeats);
+            tripRepository.save(trip);
+            log.info("Released {} seat(s) back to tripId={}", booking.getSeatsBooked(), trip.getId());
+        }
+
+        // Cancel all unpaid stages for this booking
+        List<PaymentStage> unpaidStages = paymentStageRepository
+                .findByBookingIdAndStatusIn(bookingId, List.of(
+                        PaymentStageStatus.PENDING,
+                        PaymentStageStatus.INVOICE_SENT,
+                        PaymentStageStatus.OVERDUE
+                ));
+
+        for (PaymentStage stage : unpaidStages) {
+            stage.setStatus(PaymentStageStatus.CANCELLED);
+        }
+        paymentStageRepository.saveAll(unpaidStages);
+
+        log.warn("Booking auto-cancelled due to missed payment. bookingId={}", bookingId);
+
+        // Initiate refund for previously paid stages per cancellation policy
+        refundService.initiateAutoCancellationRefund(bookingId, "Auto-cancelled: payment deadline missed");
+
+        // Notify traveler — Event 7: Auto-Cancellation
+        String tripTitle = booking.getTrip() != null ? booking.getTrip().getTitle() : "Trip";
+        paymentNotificationService.notifyAutoCancellation(
+                booking.getTraveler().getId(), bookingId, tripTitle);
+
+        // Notify host
+        var host = booking.getTrip() != null ? booking.getTrip().getHost() : null;
+        if (host == null && booking.getTrip() != null) host = booking.getTrip().getPlanner();
+        if (host != null) {
+            paymentNotificationService.notifyHostAutoCancellation(
+                    host.getId(), bookingId,
+                    booking.getTraveler().getFullName(), tripTitle);
         }
     }
 

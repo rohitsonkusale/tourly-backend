@@ -20,6 +20,10 @@ public class Booking {
     @Column(name = "booking_id")
     private Long id;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "trip_id", nullable = false)
     private Trip trip;

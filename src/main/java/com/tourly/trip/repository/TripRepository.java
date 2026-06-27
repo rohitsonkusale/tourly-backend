@@ -85,11 +85,13 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     // ========================================
     @Query("""
         SELECT t FROM Trip t
+        LEFT JOIN t.destination d
+        LEFT JOIN t.planner p
         WHERE t.active = true
           AND t.deleted = false
           AND t.status = :status
-          AND (:destination IS NULL OR LOWER(t.destination.city) LIKE LOWER(CONCAT('%', :destination, '%')))
-          AND (:host IS NULL OR LOWER(t.planner.fullName) LIKE LOWER(CONCAT('%', :host, '%')))
+          AND (:destination IS NULL OR LOWER(d.city) LIKE LOWER(CONCAT('%', :destination, '%')))
+          AND (:host IS NULL OR LOWER(p.fullName) LIKE LOWER(CONCAT('%', :host, '%')))
           AND (:startDate IS NULL OR t.startDate >= :startDate)
           AND (:endDate IS NULL OR t.endDate <= :endDate)
           AND (:priceMin IS NULL OR t.basePrice >= :priceMin)

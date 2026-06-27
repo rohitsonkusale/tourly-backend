@@ -56,6 +56,27 @@ public class Refund {
     @Column(name = "admin_notes", length = 500)
     private String adminNotes;
 
+    @Column(name = "account_holder_name", length = 255)
+    private String accountHolderName;
+
+    @Column(name = "account_number", length = 50)
+    private String accountNumber;
+
+    @Column(name = "ifsc_code", length = 20)
+    private String ifscCode;
+
+    @Column(name = "bank_name", length = 255)
+    private String bankName;
+
+    @Column(name = "transaction_reference", length = 100)
+    private String transactionReference;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
+    @Column(name = "paid_on")
+    private LocalDateTime paidOn;
+
     @Column(name = "requested_at")
     private LocalDateTime requestedAt;
 
@@ -99,4 +120,18 @@ public class Refund {
     public LocalDateTime getProcessedAt() { return processedAt; }
     public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public String getAccountHolderName() { return accountHolderName; }
+    public void setAccountHolderName(String accountHolderName) { this.accountHolderName = accountHolderName; }
+    public String getAccountNumber() { return accountNumber; }
+    public void setAccountNumber(String accountNumber) { this.accountNumber = accountNumber; }
+    public String getIfscCode() { return ifscCode; }
+    public void setIfscCode(String ifscCode) { this.ifscCode = ifscCode; }
+    public String getBankName() { return bankName; }
+    public void setBankName(String bankName) { this.bankName = bankName; }
+    public String getTransactionReference() { return transactionReference; }
+    public void setTransactionReference(String transactionReference) { this.transactionReference = transactionReference; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public LocalDateTime getPaidOn() { return paidOn; }
+    public void setPaidOn(LocalDateTime paidOn) { this.paidOn = paidOn; }
 }

@@ -5,11 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.json.JSONObject;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.razorpay.RazorpayClient;
 import com.tourly.auth.entity.User;
 import com.tourly.auth.repository.UserRepository;
 import com.tourly.booking.entity.Booking;
@@ -40,20 +38,17 @@ public class RefundServiceImpl implements RefundService {
     private final RefundRepository refundRepository;
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
-    private final RazorpayClient razorpayClient;
 
     public RefundServiceImpl(BookingRepository bookingRepository,
                              PaymentRepository paymentRepository,
                              RefundRepository refundRepository,
                              TripRepository tripRepository,
-                             UserRepository userRepository,
-                             RazorpayClient razorpayClient) {
+                             UserRepository userRepository) {
         this.bookingRepository = bookingRepository;
         this.paymentRepository = paymentRepository;
         this.refundRepository = refundRepository;
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
-        this.razorpayClient = razorpayClient;
     }
 
     @Override
@@ -171,6 +166,14 @@ public class RefundServiceImpl implements RefundService {
     @Override
     @Transactional
     public void initiateAutoCancellationRefund(Long bookingId, String reason) {
+        initiateAutoCancellationRefund(bookingId, reason, null, null, null, null);
+    }
+
+    @Override
+    @Transactional
+    public void initiateAutoCancellationRefund(Long bookingId, String reason,
+                                               String accountHolderName, String accountNumber,
+                                               String ifscCode, String bankName) {
 
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found for refund: " + bookingId));
@@ -243,6 +246,15 @@ public class RefundServiceImpl implements RefundService {
             refund.setReason(reason);
             refund.setAdminNotes("Auto-generated. Refund tier: " + refundPercentage + "% (" + daysBeforeDeparture + " days before departure)");
             refund.setRequestedAt(LocalDateTime.now());
+
+            // Set bank details if provided (traveler-initiated cancellation)
+            if (accountHolderName != null && !accountHolderName.isBlank()) {
+                refund.setAccountHolderName(accountHolderName);
+                refund.setAccountNumber(accountNumber);
+                refund.setIfscCode(ifscCode);
+                refund.setBankName(bankName);
+            }
+
             refundRepository.save(refund);
 
             remainingRefund = remainingRefund.subtract(paymentRefundAmount);
@@ -260,11 +272,13 @@ public class RefundServiceImpl implements RefundService {
     }
 
     /**
-     * Admin approves and processes a pending refund via Razorpay.
+     * Admin marks a pending refund as completed after manual bank transfer.
+     * Records the UTR/transaction reference as proof of payment.
      */
     @Override
     @Transactional
-    public void approveAndProcessRefund(Long refundId, Long adminUserId) {
+    public void approveAndProcessRefund(Long refundId, Long adminUserId,
+                                         String transactionReference, String paymentMethod, String adminNotes) {
 
         Refund refund = refundRepository.findById(refundId)
                 .orElseThrow(() -> new ResourceNotFoundException("Refund not found: " + refundId));
@@ -273,56 +287,39 @@ public class RefundServiceImpl implements RefundService {
             throw new BadRequestException("Refund is not in PENDING status. Current: " + refund.getStatus());
         }
 
-        Payment payment = refund.getPayment();
-        if (payment == null) {
-            throw new BadRequestException("No payment linked to this refund");
+        if (transactionReference == null || transactionReference.isBlank()) {
+            throw new BadRequestException("Transaction reference (UTR/NEFT number) is required as proof of payment");
         }
 
-        if (payment.getRazorpayPaymentId() == null || payment.getRazorpayPaymentId().isBlank()) {
-            throw new BadRequestException("Cannot process refund — Razorpay payment ID missing");
-        }
-
-        // Mark as APPROVED
         User admin = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin user not found"));
+
+        // Record manual payment details
         refund.setProcessedBy(admin);
-        refund.setStatus(RefundStatus.APPROVED);
+        refund.setStatus(RefundStatus.PROCESSED);
+        refund.setTransactionReference(transactionReference.trim());
+        refund.setPaymentMethod(paymentMethod != null ? paymentMethod.trim() : "BANK_TRANSFER");
+        refund.setPaidOn(LocalDateTime.now());
+        refund.setProcessedAt(LocalDateTime.now());
+
+        if (adminNotes != null && !adminNotes.isBlank()) {
+            String existingNotes = refund.getAdminNotes() != null ? refund.getAdminNotes() + " | " : "";
+            refund.setAdminNotes(existingNotes + adminNotes.trim());
+        }
+
         refundRepository.save(refund);
 
-        // Process via Razorpay
-        try {
-            JSONObject refundRequest = new JSONObject();
-            refundRequest.put("amount", refund.getRefundAmount().multiply(BigDecimal.valueOf(100)).intValue());
-
-            JSONObject notes = new JSONObject();
-            notes.put("bookingId", refund.getBooking().getId());
-            notes.put("reason", refund.getReason());
-            notes.put("approvedBy", adminUserId);
-            refundRequest.put("notes", notes);
-
-            com.razorpay.Refund razorpayRefund = razorpayClient.payments.refund(
-                    payment.getRazorpayPaymentId(), refundRequest);
-
-            refund.setRazorpayRefundId(razorpayRefund.get("id").toString());
-            refund.setStatus(RefundStatus.PROCESSED);
-            refund.setProcessedAt(LocalDateTime.now());
-            refundRepository.save(refund);
-
-            // Mark payment as refunded
+        // Mark payment as refunded
+        Payment payment = refund.getPayment();
+        if (payment != null) {
             payment.setStatus(PaymentStatus.REFUNDED);
             paymentRepository.save(payment);
-
-            log.info("Refund approved and processed. refundId={}, paymentId={}, amount={}, razorpayRefundId={}",
-                    refundId, payment.getId(), refund.getRefundAmount(), refund.getRazorpayRefundId());
-
-        } catch (Exception ex) {
-            refund.setStatus(RefundStatus.FAILED);
-            refund.setAdminNotes(refund.getAdminNotes() + " | Razorpay failed: " + ex.getMessage());
-            refundRepository.save(refund);
-
-            log.error("Razorpay refund failed for refundId={}: {}", refundId, ex.getMessage());
-            throw new BadRequestException("Refund processing failed: " + ex.getMessage());
         }
+
+        log.info("AUDIT | Refund approved (manual transfer): refundId={}, adminId={}, bookingId={}, amount={}, txnRef={}, method={}",
+                refundId, adminUserId,
+                refund.getBooking() != null ? refund.getBooking().getId() : null,
+                refund.getRefundAmount(), transactionReference, paymentMethod);
     }
 
     /**

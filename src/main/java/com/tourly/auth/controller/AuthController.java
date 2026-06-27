@@ -1,6 +1,9 @@
 package com.tourly.auth.controller;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +21,8 @@ import com.tourly.common.exception.UnauthorizedActionException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Cookie;
 import jakarta.validation.Valid;
 
 @RestController
@@ -26,6 +31,18 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final AuthService authService;
+
+    @Value("${jwt.expiration:3600000}")
+    private long accessTokenExpiry;
+
+    @Value("${jwt.refresh-expiration:604800000}")
+    private long refreshTokenExpiry;
+
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
+
+    @Value("${app.cookie.domain:}")
+    private String cookieDomain;
 
     public AuthController(AuthService authService) {
         this.authService = authService;
@@ -48,27 +65,35 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(
             summary = "Login user",
-            description = "Authenticates user credentials and returns JWT token with user authentication details"
+            description = "Authenticates user credentials, sets httpOnly cookies, and returns user details"
     )
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request) {
 
         AuthResponse response = authService.loginUser(request);
 
-        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+        HttpHeaders headers = buildAuthCookieHeaders(response.getToken(), response.getRefreshToken());
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(ApiResponse.success("Login successful", response));
     }
 
     @PostMapping("/google")
     @Operation(
             summary = "Authenticate with Google OAuth",
-            description = "Verifies Google ID token and authenticates/registers user, returning JWT token"
+            description = "Verifies Google ID token, sets httpOnly cookies, and returns user details"
     )
     public ResponseEntity<ApiResponse<AuthResponse>> googleAuth(
             @Valid @RequestBody GoogleAuthRequest request) {
 
         AuthResponse response = authService.googleAuth(request);
 
-        return ResponseEntity.ok(ApiResponse.success("Google authentication successful", response));
+        HttpHeaders headers = buildAuthCookieHeaders(response.getToken(), response.getRefreshToken());
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(ApiResponse.success("Google authentication successful", response));
     }
 
     @GetMapping("/me")
@@ -88,17 +113,117 @@ public class AuthController {
     @PostMapping("/refresh")
     @Operation(
             summary = "Refresh JWT token",
-            description = "Accepts a valid refresh token and returns a new access token + rotated refresh token"
+            description = "Reads refresh token from httpOnly cookie (or request body as fallback), returns new tokens"
     )
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
-            @RequestBody java.util.Map<String, String> request) {
+            HttpServletRequest httpRequest,
+            @RequestBody(required = false) java.util.Map<String, String> requestBody) {
 
-        String refreshToken = request.get("refreshToken");
+        // 1. Try to read refresh token from httpOnly cookie
+        String refreshToken = extractCookieValue(httpRequest, "refresh_token");
+
+        // 2. Fallback: read from request body (backward compatibility)
+        if ((refreshToken == null || refreshToken.isBlank()) && requestBody != null) {
+            refreshToken = requestBody.get("refreshToken");
+        }
+
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new com.tourly.common.exception.BadRequestException("Refresh token is required");
         }
 
         AuthResponse response = authService.refreshToken(refreshToken);
-        return ResponseEntity.ok(ApiResponse.success("Token refreshed successfully", response));
+
+        HttpHeaders headers = buildAuthCookieHeaders(response.getToken(), response.getRefreshToken());
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(ApiResponse.success("Token refreshed successfully", response));
+    }
+
+    @PostMapping("/logout")
+    @Operation(
+            summary = "Logout user",
+            description = "Clears authentication cookies"
+    )
+    public ResponseEntity<ApiResponse<Void>> logout() {
+        HttpHeaders headers = new HttpHeaders();
+
+        // Clear access token cookie
+        ResponseCookie clearAccess = ResponseCookie.from("access_token", "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+
+        // Clear refresh token cookie
+        ResponseCookie clearRefresh = ResponseCookie.from("refresh_token", "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/api/auth")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+
+        headers.add(HttpHeaders.SET_COOKIE, clearAccess.toString());
+        headers.add(HttpHeaders.SET_COOKIE, clearRefresh.toString());
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(ApiResponse.success("Logged out successfully", null));
+    }
+
+    // ──────────────────────────────────────────────
+    // Helper: Build Set-Cookie headers for auth tokens
+    // ──────────────────────────────────────────────
+    private HttpHeaders buildAuthCookieHeaders(String accessToken, String refreshToken) {
+        HttpHeaders headers = new HttpHeaders();
+
+        // Access token: httpOnly, Secure, SameSite=Lax, path=/
+        ResponseCookie.ResponseCookieBuilder accessCookie = ResponseCookie.from("access_token", accessToken)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .maxAge(accessTokenExpiry / 1000) // convert ms to seconds
+                .sameSite("Lax");
+
+        if (cookieDomain != null && !cookieDomain.isBlank()) {
+            accessCookie.domain(cookieDomain);
+        }
+
+        headers.add(HttpHeaders.SET_COOKIE, accessCookie.build().toString());
+
+        // Refresh token: httpOnly, Secure, SameSite=Lax, restricted path
+        if (refreshToken != null) {
+            ResponseCookie.ResponseCookieBuilder refreshCookie = ResponseCookie.from("refresh_token", refreshToken)
+                    .httpOnly(true)
+                    .secure(cookieSecure)
+                    .path("/api/auth") // Only sent to auth endpoints
+                    .maxAge(refreshTokenExpiry / 1000)
+                    .sameSite("Lax");
+
+            if (cookieDomain != null && !cookieDomain.isBlank()) {
+                refreshCookie.domain(cookieDomain);
+            }
+
+            headers.add(HttpHeaders.SET_COOKIE, refreshCookie.build().toString());
+        }
+
+        return headers;
+    }
+
+    // ──────────────────────────────────────────────
+    // Helper: Extract cookie value from request
+    // ──────────────────────────────────────────────
+    private String extractCookieValue(HttpServletRequest request, String cookieName) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie cookie : cookies) {
+            if (cookieName.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
     }
 }

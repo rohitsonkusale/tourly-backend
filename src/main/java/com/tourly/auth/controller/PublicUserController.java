@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import com.tourly.auth.dto.response.PublicHostResponse;
@@ -41,6 +42,7 @@ public class PublicUserController {
     }
 
     @GetMapping("/{userId}/public-profile")
+    @Transactional(readOnly = true)
     @Operation(
             summary = "Get public host profile",
             description = "Returns publicly visible host profile including stats and published trips. No auth required."

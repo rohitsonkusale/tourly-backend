@@ -184,4 +184,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         ORDER BY b.createdAt DESC
     """)
     java.util.List<Booking> findAllBookingsByHostId(@Param("hostId") Long hostId);
+
+    // =====================================
+    // REVIEW ELIGIBILITY CHECKS
+    // =====================================
+    boolean existsByTravelerIdAndTripHostIdAndStatus(Long travelerId, Long hostId, BookingStatus status);
+
+    boolean existsByTravelerIdAndTripPlannerIdAndStatus(Long travelerId, Long plannerId, BookingStatus status);
 }

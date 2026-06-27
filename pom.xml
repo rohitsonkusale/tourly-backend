@@ -126,12 +126,6 @@
 			<version>2.4.0</version>
 		</dependency>
 
-		<!-- Email sending (transactional notifications) -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
-		</dependency>
-
 		<!-- Rate limiting (auth endpoint protection) -->
 		<dependency>
 			<groupId>com.github.ben-manes.caffeine</groupId>
