@@ -4,7 +4,7 @@
 # ============================================
 
 # ── Stage 1: Build ──
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM eclipse-temurin:25-jdk-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ RUN ./mvnw package -DskipTests -B && \
     mv target/tourly-*.jar target/app.jar
 
 # ── Stage 2: Runtime ──
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
