@@ -7,9 +7,11 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.tourly.auth.dto.request.ForgotPasswordRequest;
 import com.tourly.auth.dto.request.GoogleAuthRequest;
 import com.tourly.auth.dto.request.LoginRequest;
 import com.tourly.auth.dto.request.RegisterRequest;
+import com.tourly.auth.dto.request.ResetPasswordRequest;
 import com.tourly.auth.dto.response.AuthResponse;
 import com.tourly.auth.dto.response.UserResponse;
 import com.tourly.auth.service.AuthService;
@@ -67,7 +69,7 @@ public class AuthController {
             summary = "Login user",
             description = "Authenticates user credentials, sets httpOnly cookies, and returns user details"
     )
-    public ResponseEntity<ApiResponse<AuthResponse>> login(
+    public ResponseEntity<ApiResponse<UserResponse>> login(
             @Valid @RequestBody LoginRequest request) {
 
         AuthResponse response = authService.loginUser(request);
@@ -76,7 +78,7 @@ public class AuthController {
 
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(ApiResponse.success("Login successful", response));
+                .body(ApiResponse.success("Login successful", response.getUser()));
     }
 
     @PostMapping("/google")
@@ -84,7 +86,7 @@ public class AuthController {
             summary = "Authenticate with Google OAuth",
             description = "Verifies Google ID token, sets httpOnly cookies, and returns user details"
     )
-    public ResponseEntity<ApiResponse<AuthResponse>> googleAuth(
+    public ResponseEntity<ApiResponse<UserResponse>> googleAuth(
             @Valid @RequestBody GoogleAuthRequest request) {
 
         AuthResponse response = authService.googleAuth(request);
@@ -93,7 +95,7 @@ public class AuthController {
 
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(ApiResponse.success("Google authentication successful", response));
+                .body(ApiResponse.success("Google authentication successful", response.getUser()));
     }
 
     @GetMapping("/me")
@@ -115,7 +117,7 @@ public class AuthController {
             summary = "Refresh JWT token",
             description = "Reads refresh token from httpOnly cookie (or request body as fallback), returns new tokens"
     )
-    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+    public ResponseEntity<ApiResponse<UserResponse>> refreshToken(
             HttpServletRequest httpRequest,
             @RequestBody(required = false) java.util.Map<String, String> requestBody) {
 
@@ -137,7 +139,7 @@ public class AuthController {
 
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(ApiResponse.success("Token refreshed successfully", response));
+                .body(ApiResponse.success("Token refreshed successfully", response.getUser()));
     }
 
     @PostMapping("/logout")
@@ -172,6 +174,34 @@ public class AuthController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(ApiResponse.success("Logged out successfully", null));
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(
+            summary = "Request password reset",
+            description = "Sends a password reset link to the user's registered email address"
+    )
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+
+        authService.forgotPassword(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("If an account with that email exists, a reset link has been sent.", null));
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(
+            summary = "Reset password using token",
+            description = "Resets the user's password using the token received via email"
+    )
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+
+        authService.resetPassword(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Password reset successfully. You can now log in with your new password.", null));
     }
 
     // ──────────────────────────────────────────────

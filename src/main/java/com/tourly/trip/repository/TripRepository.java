@@ -221,4 +221,10 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     // ADMIN DASHBOARD STATS
     // ========================================
     long countByDeletedFalse();
+
+    // ========================================
+    // HOST PAYOUT - get all trips for a host (including as planner)
+    // ========================================
+    @Query("SELECT t FROM Trip t WHERE (t.host.id = :hostId OR t.planner.id = :hostId) AND t.deleted = false")
+    java.util.List<Trip> findAllTripsByHostId(@Param("hostId") Long hostId);
 }

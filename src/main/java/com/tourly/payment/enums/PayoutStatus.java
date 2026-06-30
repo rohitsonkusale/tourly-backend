@@ -1,8 +1,11 @@
 package com.tourly.payment.enums;
 
 public enum PayoutStatus {
+    REQUESTED,
     PENDING,
     ON_HOLD,
-    FAILED,
-    RELEASED;
+    APPROVED,
+    REJECTED,
+    RELEASED,
+    FAILED;
 }

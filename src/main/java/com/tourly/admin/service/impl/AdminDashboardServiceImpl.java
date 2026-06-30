@@ -23,10 +23,10 @@ import com.tourly.auth.entity.RoleName;
 import com.tourly.auth.repository.UserRepository;
 import com.tourly.booking.enums.BookingStatus;
 import com.tourly.booking.repository.BookingRepository;
-import com.tourly.common.enums.TicketStatus;
-import com.tourly.common.repository.SupportTicketRepository;
-import com.tourly.payment.enums.PaymentStatus;
-import com.tourly.payment.repository.PaymentRepository;
+import com.tourly.support.enums.TicketStatus;
+import com.tourly.support.repository.SupportTicketRepository;
+import com.tourly.payment.enums.RefundStatus;
+import com.tourly.payment.repository.RefundRepository;
 import com.tourly.trip.repository.TripRepository;
 
 @Service
@@ -35,19 +35,19 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final TripRepository tripRepository;
-    private final PaymentRepository paymentRepository;
     private final SupportTicketRepository supportTicketRepository;
+    private final RefundRepository refundRepository;
 
     public AdminDashboardServiceImpl(BookingRepository bookingRepository,
                                      UserRepository userRepository,
                                      TripRepository tripRepository,
-                                     PaymentRepository paymentRepository,
-                                     SupportTicketRepository supportTicketRepository) {
+                                     SupportTicketRepository supportTicketRepository,
+                                     RefundRepository refundRepository) {
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
         this.tripRepository = tripRepository;
-        this.paymentRepository = paymentRepository;
         this.supportTicketRepository = supportTicketRepository;
+        this.refundRepository = refundRepository;
     }
 
     @Override
@@ -95,14 +95,16 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         // 3. Booking / Trip Stats
         // ===========================
         response.setTotalTrips(tripRepository.countByDeletedFalse());
-        response.setTotalBookings(bookingRepository.count());
+        // Exclude cancelled bookings from total count
+        List<BookingStatus> nonCancelledStatuses = Arrays.asList(
+                BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.COMPLETED, BookingStatus.EXPIRED);
+        response.setTotalBookings(bookingRepository.countByStatusIn(nonCancelledStatuses));
         response.setPendingApprovals(
                 userRepository.countByAccountStatus(AccountStatus.PENDING_VERIFICATION));
 
-        // Refund requests = payments with REFUNDED or REFUND_PENDING status
+        // Refund requests = pending refunds from the refunds table
         response.setRefundRequests(
-                paymentRepository.countByStatusIn(
-                        Arrays.asList(PaymentStatus.REFUNDED, PaymentStatus.REFUNDED)));
+                refundRepository.countByStatus(RefundStatus.PENDING));
 
         // Open tickets = OPEN + IN_PROGRESS
         response.setOpenTickets(

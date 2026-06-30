@@ -17,6 +17,7 @@ import com.tourly.messaging.entity.TravelerHostLink;
 import com.tourly.messaging.enums.LinkStatus;
 import com.tourly.messaging.repository.MessageRepository;
 import com.tourly.messaging.repository.TravelerHostLinkRepository;
+import com.tourly.messaging.service.ChatEventService;
 import com.tourly.messaging.service.MessageService;
 import com.tourly.messaging.service.ContactViolationService;
 import com.tourly.messaging.util.ContactMaskingUtil;
@@ -48,18 +49,21 @@ public class MessageServiceImpl implements MessageService {
     private final UserRepository userRepository;
     private final TripRepository tripRepository;
     private final ContactViolationService contactViolationService;
+    private final ChatEventService chatEventService;
     private final SecureRandom secureRandom;
 
     public MessageServiceImpl(MessageRepository messageRepository,
                               TravelerHostLinkRepository travelerHostLinkRepository,
                               UserRepository userRepository,
                               TripRepository tripRepository,
-                              ContactViolationService contactViolationService) {
+                              ContactViolationService contactViolationService,
+                              ChatEventService chatEventService) {
         this.messageRepository = messageRepository;
         this.travelerHostLinkRepository = travelerHostLinkRepository;
         this.userRepository = userRepository;
         this.tripRepository = tripRepository;
         this.contactViolationService = contactViolationService;
+        this.chatEventService = chatEventService;
         this.secureRandom = new SecureRandom();
     }
 
@@ -144,6 +148,9 @@ public class MessageServiceImpl implements MessageService {
                     sender, savedMessage.getId(), request.getContent().trim(), maskResult);
         }
 
+        // Broadcast via WebSocket for real-time delivery
+        chatEventService.broadcastMessage(savedMessage, "TRAVELER");
+
         return mapToMessageResponse(savedMessage, "TRAVELER", maskResult.wasMasked());
     }
 
@@ -198,6 +205,9 @@ public class MessageServiceImpl implements MessageService {
             contactViolationService.recordViolation(
                     host, savedMessage.getId(), request.getContent().trim(), maskResult);
         }
+
+        // Broadcast via WebSocket for real-time delivery
+        chatEventService.broadcastMessage(savedMessage, "HOST");
 
         return mapToMessageResponse(savedMessage, "HOST", maskResult.wasMasked());
     }

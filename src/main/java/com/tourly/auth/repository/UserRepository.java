@@ -48,4 +48,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByRole_NameAndAccountStatusAndDeletedAtIsNull(RoleName roleName, AccountStatus accountStatus);
 
     long countByAccountStatus(AccountStatus accountStatus);
+
+    // =========================
+    // Founding Host Check (first 10 hosts by registration order)
+    // =========================
+    @Query("SELECT COUNT(u) FROM User u WHERE u.role.name = 'HOST' AND u.deletedAt IS NULL AND u.createdAt < :hostCreatedAt")
+    long countHostsRegisteredBefore(@Param("hostCreatedAt") java.time.LocalDateTime hostCreatedAt);
 }

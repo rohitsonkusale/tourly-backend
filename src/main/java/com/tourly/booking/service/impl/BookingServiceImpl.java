@@ -26,9 +26,13 @@ import com.tourly.booking.enums.PaymentStatus;
 import com.tourly.booking.mapper.BookingMapper;
 import com.tourly.booking.repository.BookingRepository;
 import com.tourly.booking.service.BookingService;
+import com.tourly.booking.service.CouponService;
+import com.tourly.common.entity.Coupon;
+import com.tourly.common.enums.CouponStatus;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ResourceNotFoundException;
 import com.tourly.common.exception.UnauthorizedActionException;
+import com.tourly.common.repository.CouponRepository;
 import com.tourly.payment.entity.PaymentStage;
 import com.tourly.payment.enums.ScheduleType;
 import com.tourly.payment.repository.PaymentStageRepository;
@@ -52,6 +56,8 @@ public class BookingServiceImpl implements BookingService {
     private final PaymentStageCalculator paymentStageCalculator;
     private final PaymentNotificationService paymentNotificationService;
     private final RefundService refundService;
+    private final CouponService couponService;
+    private final CouponRepository couponRepository;
 
     public BookingServiceImpl(
             BookingRepository bookingRepository,
@@ -60,7 +66,9 @@ public class BookingServiceImpl implements BookingService {
             PaymentStageRepository paymentStageRepository,
             PaymentStageCalculator paymentStageCalculator,
             PaymentNotificationService paymentNotificationService,
-            RefundService refundService) {
+            RefundService refundService,
+            CouponService couponService,
+            CouponRepository couponRepository) {
 
         this.bookingRepository = bookingRepository;
         this.tripRepository = tripRepository;
@@ -69,6 +77,8 @@ public class BookingServiceImpl implements BookingService {
         this.paymentStageCalculator = paymentStageCalculator;
         this.paymentNotificationService = paymentNotificationService;
         this.refundService = refundService;
+        this.couponService = couponService;
+        this.couponRepository = couponRepository;
     }
 
     // =====================================
@@ -183,14 +193,58 @@ public class BookingServiceImpl implements BookingService {
         trip.setBookedSeats(trip.getBookedSeats() + request.getSeats());
         tripRepository.save(trip);
 
-        BigDecimal totalPrice =
+        BigDecimal baseAmount =
                 trip.getBasePrice().multiply(BigDecimal.valueOf(request.getSeats()));
+
+        // ===== COUPON DISCOUNT LOGIC =====
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        Coupon appliedCoupon = null;
+
+        if (request.getCouponCode() != null && !request.getCouponCode().isBlank()) {
+            String code = request.getCouponCode().trim().toUpperCase();
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+            appliedCoupon = couponRepository.findActiveByCode(code, CouponStatus.ACTIVE, now)
+                    .orElseThrow(() -> new BadRequestException("Invalid or expired coupon code"));
+
+            // Usage limit check
+            if (appliedCoupon.getUsedCount() >= appliedCoupon.getMaxUses()) {
+                throw new BadRequestException("This coupon has reached its usage limit");
+            }
+
+            // Trip scope check
+            if (appliedCoupon.getTrip() != null && !appliedCoupon.getTrip().getId().equals(trip.getId())) {
+                throw new BadRequestException("This coupon is not valid for this trip");
+            }
+
+            // Destination scope check
+            if (appliedCoupon.getDestination() != null && trip.getDestination() != null
+                    && !appliedCoupon.getDestination().getId().equals(trip.getDestination().getId())) {
+                throw new BadRequestException("This coupon is not valid for this destination");
+            }
+
+            // Minimum order value
+            if (appliedCoupon.getMinOrderValue() != null
+                    && appliedCoupon.getMinOrderValue().compareTo(BigDecimal.ZERO) > 0
+                    && baseAmount.compareTo(appliedCoupon.getMinOrderValue()) < 0) {
+                throw new BadRequestException("Minimum order value not met for this coupon");
+            }
+
+            discountAmount = couponService.calculateDiscount(appliedCoupon, baseAmount);
+        }
+
+        BigDecimal totalPrice = baseAmount.subtract(discountAmount);
 
         Booking booking = new Booking();
         booking.setTrip(trip);
         booking.setTraveler(traveler);
         booking.setSeatsBooked(request.getSeats());
+        booking.setBaseAmount(baseAmount);
+        booking.setDiscountAmount(discountAmount);
         booking.setTotalPrice(totalPrice);
+        if (appliedCoupon != null) {
+            booking.setCoupon(appliedCoupon);
+        }
         booking.setStatus(BookingStatus.PENDING);
         booking.setPaymentStatus(PaymentStatus.PENDING);
         booking.setScheduleType(scheduleType);
@@ -199,6 +253,11 @@ public class BookingServiceImpl implements BookingService {
         booking.setExpiresAt(LocalDateTime.now().plusMinutes(10));
 
         Booking savedBooking = bookingRepository.save(booking);
+
+        // ===== RECORD COUPON USAGE =====
+        if (appliedCoupon != null) {
+            couponService.recordUsage(appliedCoupon, savedBooking.getId(), traveler.getId(), discountAmount);
+        }
 
         // ===== GENERATE & PERSIST PAYMENT STAGES =====
         List<PaymentStage> stages = paymentStageCalculator.generateStages(today, departureDate, totalPrice);
@@ -368,6 +427,7 @@ public class BookingServiceImpl implements BookingService {
         HostBookingResponse r = new HostBookingResponse();
         r.setBookingId(b.getId());
         r.setBookingRef(b.getBookingRef());
+        r.setTripId(b.getTrip() != null ? b.getTrip().getId() : null);
         r.setTripTitle(b.getTrip() != null ? b.getTrip().getTitle() : null);
         if (b.getTraveler() != null) {
             r.setTravelerName(b.getTraveler().getFullName());

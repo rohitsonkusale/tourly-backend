@@ -63,6 +63,19 @@ public class BookingMapper {
                 response.setHostName(host.getFullName());
                 response.setHostAvatar(host.getAvatar());
             }
+
+            // Planner info
+            if (trip.getPlanner() != null) {
+                response.setPlannerId(trip.getPlanner().getId());
+                response.setPlannerName(trip.getPlanner().getFullName());
+            }
+        }
+
+        // Traveler info
+        User traveler = booking.getTraveler();
+        if (traveler != null) {
+            response.setTravelerId(traveler.getId());
+            response.setTravelerName(traveler.getFullName());
         }
 
         return response;

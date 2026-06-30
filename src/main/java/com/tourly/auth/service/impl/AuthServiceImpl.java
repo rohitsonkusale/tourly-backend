@@ -2,17 +2,22 @@ package com.tourly.auth.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.tourly.auth.dto.request.ForgotPasswordRequest;
 import com.tourly.auth.dto.request.GoogleAuthRequest;
 import com.tourly.auth.dto.request.LoginRequest;
 import com.tourly.auth.dto.request.RegisterRequest;
+import com.tourly.auth.dto.request.ResetPasswordRequest;
 import com.tourly.auth.dto.response.AuthResponse;
 import com.tourly.auth.dto.response.UserResponse;
 import com.tourly.auth.entity.AccountStatus;
+import com.tourly.auth.entity.PasswordResetToken;
 import com.tourly.auth.entity.Role;
 import com.tourly.auth.entity.RoleName;
 import com.tourly.auth.entity.User;
@@ -22,10 +27,12 @@ import com.tourly.verification.enums.VerificationStatus;
 import com.tourly.verification.repository.HostVerificationRepository;
 import com.tourly.verification.repository.PlannerVerificationRepository;
 import com.tourly.auth.mapper.UserMapper;
+import com.tourly.auth.repository.PasswordResetTokenRepository;
 import com.tourly.auth.repository.RoleRepository;
 import com.tourly.auth.repository.UserRepository;
 import com.tourly.auth.service.AuthService;
 import com.tourly.auth.service.JwtService;
+import com.tourly.notification.service.EmailService;
 import com.tourly.common.exception.BadRequestException;
 import com.tourly.common.exception.ConflictException;
 import com.tourly.common.exception.ResourceNotFoundException;
@@ -42,25 +49,34 @@ public class AuthServiceImpl implements AuthService {
     @Value("${google.client-id}")
     private String googleClientId;
 
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final HostVerificationRepository hostVerificationRepository;
     private final PlannerVerificationRepository plannerVerificationRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
 
     public AuthServiceImpl(UserRepository userRepository,
                            RoleRepository roleRepository,
                            PasswordEncoder passwordEncoder,
                            JwtService jwtService,
                            HostVerificationRepository hostVerificationRepository,
-                           PlannerVerificationRepository plannerVerificationRepository) {
+                           PlannerVerificationRepository plannerVerificationRepository,
+                           PasswordResetTokenRepository passwordResetTokenRepository,
+                           EmailService emailService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.hostVerificationRepository = hostVerificationRepository;
         this.plannerVerificationRepository = plannerVerificationRepository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.emailService = emailService;
     }
 
     private void validateKycDetails(String aadhaarNumber, String panNumber) {
@@ -224,6 +240,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse googleAuth(GoogleAuthRequest request) {
         // 1. Verify Google ID token
+        System.out.println("[DEBUG] Google Client ID loaded: " + (googleClientId != null ? googleClientId.substring(0, Math.min(10, googleClientId.length())) + "..." : "NULL"));
         GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance())
                 .setAudience(Collections.singletonList(googleClientId))
                 .build();
@@ -406,5 +423,90 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         return UserMapper.toResponse(user);
+    }
+
+    // ===========================
+    // FORGOT PASSWORD
+    // ===========================
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        // Always return success to prevent email enumeration attacks
+        if (userOpt.isEmpty()) {
+            return;
+        }
+
+        User user = userOpt.get();
+
+        // Don't allow password reset for soft-deleted accounts
+        if (user.getDeletedAt() != null) {
+            return;
+        }
+
+        // Don't allow password reset for Google-only accounts (no password set)
+        if (user.getPassword() == null && user.getGoogleId() != null) {
+            // Still return silently — don't reveal account info
+            return;
+        }
+
+        // Delete any existing tokens for this user
+        passwordResetTokenRepository.deleteByUser(user);
+
+        // Generate a secure random token
+        String token = UUID.randomUUID().toString();
+
+        // Token expires in 30 minutes
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(30);
+
+        PasswordResetToken resetToken = new PasswordResetToken(user, token, expiresAt);
+        passwordResetTokenRepository.save(resetToken);
+
+        // Build reset link
+        String resetLink = frontendUrl + "/auth/reset-password?token=" + token;
+
+        // Send email
+        String emailBody = "Hi " + user.getFullName() + ",<br><br>" +
+                "We received a request to reset your password. Click the link below to set a new password:<br><br>" +
+                "<a href=\"" + resetLink + "\" style=\"display:inline-block;padding:12px 24px;background-color:#2C365A;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;\">Reset Password</a><br><br>" +
+                "This link will expire in 30 minutes.<br><br>" +
+                "If you didn't request this, you can safely ignore this email. Your password will remain unchanged.<br><br>" +
+                "— Team Roamaya";
+
+        emailService.sendStyledEmail(email, "Reset Your Roamaya Password", "Password Reset", emailBody);
+    }
+
+    // ===========================
+    // RESET PASSWORD
+    // ===========================
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String token = request.getToken().trim();
+
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenAndUsedFalse(token)
+                .orElseThrow(() -> new BadRequestException("Invalid or expired reset link. Please request a new one."));
+
+        if (resetToken.isExpired()) {
+            throw new BadRequestException("This reset link has expired. Please request a new one.");
+        }
+
+        User user = resetToken.getUser();
+
+        // Block if user was deleted between email and reset
+        if (user.getDeletedAt() != null) {
+            throw new BadRequestException("This account no longer exists.");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Mark token as used
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
     }
 }

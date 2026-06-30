@@ -37,11 +37,38 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // =====================================
     List<Booking> findByTripId(Long tripId);
 
+    long countByTripIdAndStatusIn(Long tripId, java.util.List<BookingStatus> statuses);
+
+    @Query("SELECT COALESCE(SUM(b.totalPrice), 0) FROM Booking b WHERE b.trip.id = :tripId AND b.status IN ('CONFIRMED', 'COMPLETED')")
+    java.math.BigDecimal sumRevenueByTripId(@Param("tripId") Long tripId);
+
     // =====================================
     // ADMIN BOOKING FILTER
     // =====================================
+    @Query(value = "SELECT b FROM Booking b " +
+           "LEFT JOIN FETCH b.trip t " +
+           "LEFT JOIN FETCH t.destination " +
+           "LEFT JOIN FETCH t.media " +
+           "LEFT JOIN FETCH t.planner " +
+           "LEFT JOIN FETCH t.host " +
+           "LEFT JOIN FETCH b.traveler " +
+           "ORDER BY b.createdAt DESC",
+           countQuery = "SELECT COUNT(b) FROM Booking b")
+    Page<Booking> findAllWithDetails(Pageable pageable);
+
     Page<Booking> findByStatus(BookingStatus status, Pageable pageable);
 
+    @Query(value = "SELECT b FROM Booking b " +
+           "LEFT JOIN FETCH b.trip t " +
+           "LEFT JOIN FETCH t.destination " +
+           "LEFT JOIN FETCH t.media " +
+           "LEFT JOIN FETCH t.planner " +
+           "LEFT JOIN FETCH t.host " +
+           "LEFT JOIN FETCH b.traveler " +
+           "WHERE b.status = :status " +
+           "ORDER BY b.createdAt DESC",
+           countQuery = "SELECT COUNT(b) FROM Booking b WHERE b.status = :status")
+    Page<Booking> findByStatusWithDetails(@Param("status") BookingStatus status, Pageable pageable);
     // =====================================
     // FIND EXPIRED PENDING BOOKINGS (Scheduler)
     // =====================================

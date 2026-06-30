@@ -23,6 +23,12 @@ public class BookingResponse {
     private String hostAvatar;
     private Long hostId;
 
+    private String plannerName;
+    private Long plannerId;
+
+    private String travelerName;
+    private Long travelerId;
+
     private Integer seatsBooked;
     private BigDecimal totalPrice;
     private BigDecimal amountPaid;
@@ -74,6 +80,18 @@ public class BookingResponse {
 
     public Long getHostId() { return hostId; }
     public void setHostId(Long hostId) { this.hostId = hostId; }
+
+    public String getPlannerName() { return plannerName; }
+    public void setPlannerName(String plannerName) { this.plannerName = plannerName; }
+
+    public Long getPlannerId() { return plannerId; }
+    public void setPlannerId(Long plannerId) { this.plannerId = plannerId; }
+
+    public String getTravelerName() { return travelerName; }
+    public void setTravelerName(String travelerName) { this.travelerName = travelerName; }
+
+    public Long getTravelerId() { return travelerId; }
+    public void setTravelerId(Long travelerId) { this.travelerId = travelerId; }
 
     public Integer getSeatsBooked() { return seatsBooked; }
     public void setSeatsBooked(Integer seatsBooked) { this.seatsBooked = seatsBooked; }

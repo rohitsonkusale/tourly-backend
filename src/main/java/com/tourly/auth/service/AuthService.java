@@ -1,8 +1,10 @@
 package com.tourly.auth.service;
 
+import com.tourly.auth.dto.request.ForgotPasswordRequest;
 import com.tourly.auth.dto.request.GoogleAuthRequest;
 import com.tourly.auth.dto.request.LoginRequest;
 import com.tourly.auth.dto.request.RegisterRequest;
+import com.tourly.auth.dto.request.ResetPasswordRequest;
 import com.tourly.auth.dto.response.AuthResponse;
 import com.tourly.auth.dto.response.UserResponse;
 
@@ -17,4 +19,8 @@ public interface AuthService {
     UserResponse getCurrentUser(Long userId);
 
     AuthResponse refreshToken(String refreshToken);
+
+    void forgotPassword(ForgotPasswordRequest request);
+
+    void resetPassword(ResetPasswordRequest request);
 }

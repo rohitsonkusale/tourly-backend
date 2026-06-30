@@ -2,8 +2,10 @@ package com.tourly.payment.entity;
 
 import com.tourly.auth.entity.User;
 import com.tourly.booking.entity.Booking;
+import com.tourly.trip.entity.Trip;
 import com.tourly.payment.enums.PayeeType;
 import com.tourly.payment.enums.PayoutStatus;
+import com.tourly.payment.enums.PayoutTranche;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,7 +20,11 @@ public class Payout {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_id", nullable = false)
+    @JoinColumn(name = "trip_id")
+    private Trip trip;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_id")
     private Booking booking;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -49,11 +55,18 @@ public class Payout {
     @Column(name = "status", nullable = false, length = 50)
     private PayoutStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tranche", length = 20)
+    private PayoutTranche tranche;
+
     @Column(name = "razorpay_transfer_id", length = 255)
     private String razorpayTransferId;
 
     @Column(name = "utr_number", length = 255)
     private String utrNumber;
+
+    @Column(name = "admin_message", columnDefinition = "TEXT")
+    private String adminMessage;
 
     @Column(name = "requested_at", nullable = false)
     private LocalDateTime requestedAt;
@@ -71,6 +84,8 @@ public class Payout {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Trip getTrip() { return trip; }
+    public void setTrip(Trip trip) { this.trip = trip; }
     public Booking getBooking() { return booking; }
     public void setBooking(Booking booking) { this.booking = booking; }
     public User getPayee() { return payee; }
@@ -89,10 +104,14 @@ public class Payout {
     public void setNetAmount(BigDecimal netAmount) { this.netAmount = netAmount; }
     public PayoutStatus getStatus() { return status; }
     public void setStatus(PayoutStatus status) { this.status = status; }
+    public PayoutTranche getTranche() { return tranche; }
+    public void setTranche(PayoutTranche tranche) { this.tranche = tranche; }
     public String getRazorpayTransferId() { return razorpayTransferId; }
     public void setRazorpayTransferId(String razorpayTransferId) { this.razorpayTransferId = razorpayTransferId; }
     public String getUtrNumber() { return utrNumber; }
     public void setUtrNumber(String utrNumber) { this.utrNumber = utrNumber; }
+    public String getAdminMessage() { return adminMessage; }
+    public void setAdminMessage(String adminMessage) { this.adminMessage = adminMessage; }
     public LocalDateTime getRequestedAt() { return requestedAt; }
     public void setRequestedAt(LocalDateTime requestedAt) { this.requestedAt = requestedAt; }
     public LocalDateTime getProcessedAt() { return processedAt; }

@@ -11,6 +11,7 @@ public class HostBookingResponse {
 
     private Long bookingId;
     private String bookingRef;
+    private Long tripId;
     private String tripTitle;
     private String travelerName;
     private String travelerEmail;
@@ -28,6 +29,9 @@ public class HostBookingResponse {
 
     public String getBookingRef() { return bookingRef; }
     public void setBookingRef(String bookingRef) { this.bookingRef = bookingRef; }
+
+    public Long getTripId() { return tripId; }
+    public void setTripId(Long tripId) { this.tripId = tripId; }
 
     public String getTripTitle() { return tripTitle; }
     public void setTripTitle(String tripTitle) { this.tripTitle = tripTitle; }

@@ -1,6 +1,7 @@
 package com.tourly.common.entity;
 
 import com.tourly.auth.entity.User;
+import com.tourly.support.entity.SupportTicket;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 

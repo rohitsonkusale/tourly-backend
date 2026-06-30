@@ -26,13 +26,13 @@ public class AdminBookingServiceImpl implements AdminBookingService {
 
     @Override
     public Page<BookingResponse> getAllBookings(Pageable pageable) {
-        return bookingRepository.findAll(pageable)
+        return bookingRepository.findAllWithDetails(pageable)
                 .map(BookingMapper::toResponse);
     }
 
     @Override
     public Page<BookingResponse> getBookingsByStatus(BookingStatus status, Pageable pageable) {
-        return bookingRepository.findByStatus(status, pageable)
+        return bookingRepository.findByStatusWithDetails(status, pageable)
                 .map(BookingMapper::toResponse);
     }
 

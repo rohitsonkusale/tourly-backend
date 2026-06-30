@@ -45,7 +45,9 @@ public interface PaymentStageRepository extends JpaRepository<PaymentStage, Long
      * Used by the dashboard "Upcoming Payments" widget.
      */
     @Query("SELECT ps FROM PaymentStage ps " +
-           "JOIN ps.booking b " +
+           "JOIN FETCH ps.booking b " +
+           "LEFT JOIN FETCH b.trip t " +
+           "LEFT JOIN FETCH t.destination " +
            "WHERE b.traveler.id = :travelerId " +
            "AND ps.status IN (:statuses) " +
            "AND b.status IN ('PENDING', 'CONFIRMED') " +
