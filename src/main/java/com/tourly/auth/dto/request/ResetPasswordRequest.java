@@ -10,9 +10,9 @@ public class ResetPasswordRequest {
     private String token;
 
     @NotBlank(message = "New password is required")
-    @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+    @Size(min = 8, max = 12, message = "Password must be between 8 and 12 characters")
     @Pattern(
-        regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$",
+        regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,12}$",
         message = "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
     )
     private String newPassword;
